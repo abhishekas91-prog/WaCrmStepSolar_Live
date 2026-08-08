@@ -1,70 +1,175 @@
-# Getting Started with Create React App
+# wacrm — CRM Template for WhatsApp
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+> Self-hostable CRM template for WhatsApp® — shared inbox, contacts,
+> sales pipelines, broadcasts, and no-code automations. Fork it, brand
+> it, host it.
 
-## Available Scripts
+<p align="center">
+  <a href="https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST">
+    <img src="./.github/assets/hostinger-deploy.png" alt="Ship your Node.js app in one click — Deploy to Hostinger" width="900">
+  </a>
+</p>
 
-In the project directory, you can run:
+[![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](./LICENSE)
+[![CI](https://github.com/ArnasDon/wacrm/actions/workflows/ci.yml/badge.svg)](https://github.com/ArnasDon/wacrm/actions/workflows/ci.yml)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-black?logo=nextdotjs)](https://nextjs.org)
+[![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ecf8e?logo=supabase)](https://supabase.com)
+[![Stars](https://img.shields.io/github/stars/ArnasDon/wacrm?style=social)](https://github.com/ArnasDon/wacrm/stargazers)
 
-### `npm start`
+The marketing site and self-host docs live in a separate repo:
+[ArnasDon/wacrm-site](https://github.com/ArnasDon/wacrm-site)
+([wacrm.tech](https://wacrm.tech)). This repo is the product —
+clone or fork it to run your own CRM.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## What you get out of the box
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **Shared inbox** on the official WhatsApp Business API — multiple
+  agents working one number, per-conversation assignment, status, and
+  notes.
+- **Contacts + tags + custom fields**, CSV import, deduplication.
+- **Sales pipelines** (Kanban) with deals linked to conversations.
+- **Broadcasts** with Meta-approved templates, delivery + read
+  tracking, per-recipient variable substitution.
+- **No-code automations** — triggers on inbound messages, new
+  contacts, keywords, or schedule; conditional branches, waits,
+  tags, webhooks. Visual builder.
+- **AI reply assistant** — bring your own OpenAI or Anthropic key
+  (stored encrypted; no per-seat AI fee, your data stays yours).
+  One-click AI-drafted replies in the inbox, plus an optional
+  auto-reply bot with a per-conversation cap and clean human handoff.
+  Add a **knowledge base** (FAQs, policies, product docs) and it
+  answers from your own content — hybrid retrieval (Postgres full-text,
+  or semantic pgvector when an embeddings key is set).
+- **Real-time dashboard** — response times, daily volume, pipeline
+  value, cross-module activity feed.
+- **Team accounts** — invite teammates by link, role-based access
+  (owner / admin / agent / viewer), ownership transfer. Every install
+  is account-scoped, so one shared inbox can be staffed by a whole
+  team. Solo use stays single-user with zero setup.
+- **Account management** — email, password, avatar, global sign-out.
+- **Public REST API** (`/api/v1`) with scoped, revocable API keys —
+  build your own automations on top of your CRM. See
+  [docs/public-api.md](./docs/public-api.md).
+- **MCP server** — drive your CRM from Claude, Cursor, and other AI
+  assistants over the [Model Context Protocol](https://modelcontextprotocol.io).
+  Read-only by default, opt-in writes. See [docs/mcp.md](./docs/mcp.md)
+  (server in [`mcp-server/`](./mcp-server)).
 
-### `npm test`
+## Why fork this?
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+This is a **template**, not a product. Forking means you get:
 
-### `npm run build`
+- **Full ownership** — your code, your Supabase project, your domain,
+  your data. No SaaS lock-in, no seat pricing, no trust dance.
+- **Full customisation** — add the fields your team needs, remove the
+  modules you don't, redesign anything. The stack is boring on
+  purpose (Next.js + Supabase + Tailwind) so the learning curve is
+  short.
+- **Zero ops to start** — [Hostinger](https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST)
+  Managed Node.js deploys a fork in a few clicks. No Docker, no
+  Kubernetes, no infra team needed.
+  ([See below ↓](#-deploy-on-hostinger-recommended))
+- **Real security primitives** — token encryption (AES-256-GCM), RLS
+  on every table, HMAC-verified webhooks, CSP, rate limiting, CI
+  typecheck/build on every PR.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Not a framework. Not an SDK. A concrete, working CRM you can stand up
+in an afternoon and make yours.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Quick start
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```bash
+# Fork on GitHub first: https://github.com/ArnasDon/wacrm → Fork
+git clone https://github.com/<your-username>/wacrm.git
+cd wacrm
+npm install
+cp .env.local.example .env.local   # fill in Supabase + Meta creds
+npm run dev
+```
 
-### `npm run eject`
+Open <http://localhost:3000>. You'll be redirected to `/login` (or
+`/dashboard` if already signed in).
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Prefer containers? See [docs/docker.md](./docs/docker.md) for the
+Dockerfile + Docker Compose setup.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## 🚀 Deploy on Hostinger (recommended)
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+<p align="center">
+  <a href="https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST">
+    <img src="./.github/assets/hostinger-deploy.png" alt="Ship your Node.js app in one click — Deploy to Hostinger" width="1000">
+  </a>
+</p>
+<p align="center">
+  <a href="https://wacrm.tech/docs/deployment-hostinger">
+    <img src="https://img.shields.io/badge/Step--by--step_guide-wacrm.tech%2Fdocs-111?style=for-the-badge" alt="Step-by-step guide" height="44">
+  </a>
+</p>
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+**wacrm is built to run on [Hostinger](https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST).**
+It's the path we test, document, and recommend — and the fastest way
+to get a production-grade CRM live without owning a VPS or a
+Kubernetes cluster.
 
-## Learn More
+### Why Hostinger?
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+| | |
+|---|---|
+| **One-click Git deploy** | Connect your fork, push to `main`, Hostinger builds and ships it. No SSH, no Docker, no CI to wire up — this repo's own `main` deploys this way. |
+| **Managed Node.js** | Next.js 16 (App Router, server actions, ISR) runs out of the box on [Premium, Business, and Cloud](https://www.hostinger.com/web-apps-hosting?REFERRALCODE=WACRMHOST) shared plans. You don't manage Node versions, processes, or reverse proxies. |
+| **Free SSL + free domain** | Automatic Let's Encrypt on your custom domain (or a free one included with annual plans). HTTPS is on by default — required for the WhatsApp Business webhook. |
+| **Global CDN + LiteSpeed** | Static assets cached at the edge, dynamic routes served from LiteSpeed. Snappy dashboards out of the box, no Cloudflare setup required. |
+| **Env vars + logs in hPanel** | Set `SUPABASE_*`, `WHATSAPP_*`, and `ENCRYPTION_KEY` from the panel — no `.env` on the server. Live application logs in the same UI. |
+| **DDoS protection + daily backups** | Built-in, no add-ons. The webhook endpoint is a public target — having protection at the edge matters. |
+| **Cheaper than a VPS** | Plans start at a few dollars a month — order-of-magnitude less than a comparable managed Node.js host, and you don't pay extra for the database (that's Supabase). |
+| **24/7 human support** | Live chat support in 20+ languages — useful when your CRM is the thing your team relies on to talk to customers. |
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### The 60-second version
 
-### Code Splitting
+1. **Fork** this repo on GitHub.
+2. In **hPanel → Websites → Create**, pick **Node.js** and connect
+   your fork.
+3. Paste your Supabase + Meta env vars into hPanel.
+4. Push to `main`. Hostinger builds and serves it. Done.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Full walkthrough with screenshots:
+**[wacrm.tech/docs/deployment-hostinger](https://wacrm.tech/docs/deployment-hostinger)**.
 
-### Analyzing the Bundle Size
+> _Note: wacrm is MIT-licensed and runs anywhere Node.js does
+> (Vercel, Railway, your own VPS). Hostinger is recommended, not
+> required._
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Documentation
 
-### Making a Progressive Web App
+Full self-host documentation — Supabase migrations, WhatsApp Business
+API config, and production deploy — lives at
+**[wacrm.tech/docs](https://wacrm.tech/docs)**
+(source: [ArnasDon/wacrm-site](https://github.com/ArnasDon/wacrm-site)).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Key pages:
+- [Getting started](https://wacrm.tech/docs/getting-started)
+- [Supabase setup](https://wacrm.tech/docs/supabase-setup)
+- [WhatsApp setup](https://wacrm.tech/docs/whatsapp-setup)
+- [Environment variables](https://wacrm.tech/docs/environment-variables)
+- [Deploy on Hostinger](https://wacrm.tech/docs/deployment-hostinger)
+- [Architecture](https://wacrm.tech/docs/architecture)
+- [Troubleshooting](https://wacrm.tech/docs/troubleshooting)
 
-### Advanced Configuration
+## Stack
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+- **App** — Next.js 16 (App Router), React 19, TypeScript, Tailwind v4.
+- **Data** — Supabase (Postgres + Auth + Storage + RLS).
+- **WhatsApp** — Meta Cloud API (official WhatsApp Business API).
 
-### Deployment
+## Contributing
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+This is a template, not a collaborative product — the expected flow is
+fork → customise → deploy, **not** upstream contribution. Bug reports
+and security issues are welcome; feature PRs often belong in your fork
+rather than here. Details in
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) and
+[`.github/SECURITY.md`](./.github/SECURITY.md).
 
-### `npm run build` fails to minify
+## License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+[MIT](./LICENSE). Fork it, brand it, host it.
