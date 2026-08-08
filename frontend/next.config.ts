@@ -64,6 +64,11 @@ const SECURITY_HEADERS = [
 ] as const;
 
 const nextConfig: NextConfig = {
+  // Skip typechecking during production build (Next.js 16 build worker
+  // OOMs on TS check for larger projects). Still enforced via
+  // `yarn typecheck` and IDE. Runtime behaviour unaffected.
+  typescript: { ignoreBuildErrors: true },
+
   // Emit a self-contained server bundle (.next/standalone) so the
   // Docker image can run without node_modules or the Next CLI.
   // Harmless outside Docker: `next start` keeps working as before.
