@@ -44,6 +44,45 @@ function SignupPageInner() {
   const [success, setSuccess] = useState(false);
   const supabase = createClient();
 
+  // Public signup is disabled — only invited users (with a token in
+  // the query string) can create an account. Everyone else must be
+  // invited by an admin from Settings → Team.
+  if (!inviteToken) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md border-border bg-card">
+          <CardHeader className="items-center text-center">
+            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+              <UsersRound className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle
+              className="text-xl text-foreground"
+              data-testid="signup-disabled-title"
+            >
+              Signup by invitation only
+            </CardTitle>
+            <CardDescription className="text-muted-foreground">
+              New accounts are created by your workspace admin. Please
+              ask them to invite you from{" "}
+              <span className="text-foreground">Settings → Team</span>,
+              then open the invitation link they send you.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/login" data-testid="signup-disabled-back-to-login">
+              <Button
+                variant="outline"
+                className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                Back to sign in
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
