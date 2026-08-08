@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -52,8 +53,15 @@ function SignupPageInner() {
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md border-border bg-card">
           <CardHeader className="items-center text-center">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-              <UsersRound className="h-6 w-6 text-primary" />
+            <div className="mb-2 flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-white p-1.5">
+              <Image
+                src="/step-solar-logo.jpg"
+                alt="Step Solar"
+                width={64}
+                height={64}
+                priority
+                className="h-full w-full object-contain"
+              />
             </div>
             <CardTitle
               className="text-xl text-foreground"
@@ -170,12 +178,15 @@ function SignupPageInner() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
-            )}
+          <div className="mb-2 flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-white p-1.5">
+            <Image
+              src="/step-solar-logo.jpg"
+              alt="Step Solar"
+              width={64}
+              height={64}
+              priority
+              className="h-full w-full object-contain"
+            />
           </div>
           <CardTitle className="text-xl text-foreground">
             {inviteToken ? "Create account & join" : "Create account"}
@@ -183,7 +194,7 @@ function SignupPageInner() {
           <CardDescription className="text-muted-foreground">
             {inviteToken
               ? "Verify your email, then accept the invitation to join your team."
-              : "Get started with CRM Template for WhatsApp"}
+              : "Get started with Step Solar Whatsapp"}
           </CardDescription>
         </CardHeader>
         <CardContent>

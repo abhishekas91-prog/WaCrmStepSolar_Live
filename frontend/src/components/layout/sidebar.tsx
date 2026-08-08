@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -187,11 +188,18 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
         {/* Logo row. On mobile we put a close button here; on desktop the
             close button is hidden since the sidebar is always-visible. */}
         <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <MessageSquare className="h-4 w-4" />
+          <Link href="/dashboard" className="flex items-center gap-2" data-testid="sidebar-brand-link">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-white p-1">
+              <Image
+                src="/step-solar-logo.jpg"
+                alt="Step Solar"
+                width={40}
+                height={40}
+                priority
+                className="h-8 w-8 object-contain"
+              />
             </div>
-            <span className="text-sm font-semibold text-foreground">
+            <span className="text-sm font-semibold text-foreground" data-testid="sidebar-brand-title">
               {t("title")}
             </span>
           </Link>
