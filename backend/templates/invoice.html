@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Quotation - {{ invoice.invoice_no }}</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; color: #111; }
+      h1 { font-size: 18px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+      th { background: #f7f7f7; }
+      .total { text-align: right; font-weight: bold; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Quotation / Invoice: {{ invoice.invoice_no }}</h1>
+    <p><strong>Customer:</strong> {{ invoice.customer_name }} &nbsp;&nbsp; <strong>Phone:</strong> {{ invoice.contact_phone }}</p>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>
+      </thead>
+      <tbody>
+        {% for it in invoice.items %}
+          <tr>
+            <td>{{ it.desc }}</td>
+            <td>{{ it.qty }}</td>
+            <td>₹ {{ "{:,.2f}".format(it.price) }}</td>
+            <td>₹ {{ "{:,.2f}".format(it.qty * it.price) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="total">Grand Total: ₹ {{ "{:,.2f}".format(invoice.total) }}</p>
+    <p>Generated on {{ invoice.created_at }}</p>
+  </body>
+</html>
