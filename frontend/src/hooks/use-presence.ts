@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import type { CompatChannel } from "@/lib/mongo/compat";
 
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
@@ -80,7 +80,7 @@ export function usePresence(enabled = true): UsePresenceResult {
     // Realtime has already delivered (keeping the newer last_seen_at)
     // rather than replacing the map — so an event that lands while the
     // fetch is in flight isn't clobbered by a staler snapshot row.
-    const channel: RealtimeChannel = supabase
+    const channel: CompatChannel = supabase
       .channel(`presence:${accountId}`)
       .on(
         "postgres_changes",

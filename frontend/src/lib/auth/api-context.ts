@@ -27,7 +27,7 @@
 // past its own account because the account is fixed at lookup time.
 // ============================================================
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { CompatClient } from "@/lib/mongo/compat";
 
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { findActiveKeyByHash, touchLastUsed } from '@/lib/api-keys/store';
@@ -39,8 +39,8 @@ import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 export interface ApiKeyContext {
   /** Discriminant — lets shared logic tell key auth from cookie auth. */
   authType: 'api_key';
-  /** Service-role Supabase client. RLS-bypassing; scope by accountId. */
-  supabase: SupabaseClient;
+  /** Mongo compat client. RLS-bypassing; scope by accountId. */
+  supabase: CompatClient;
   /** The account this key belongs to. */
   accountId: string;
   /** The key row id — for audit logging and the rate-limit bucket. */

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { CompatClient } from "@/lib/mongo/compat"
 import type { ChatMessage } from './types'
 import { aiContextMessageLimit } from './defaults'
 
@@ -17,7 +17,7 @@ interface DbMessage {
  * naturally and the most recent customer message lands last.
  */
 export async function buildConversationContext(
-  db: SupabaseClient,
+  db: CompatClient,
   conversationId: string,
   limit: number = aiContextMessageLimit(),
 ): Promise<ChatMessage[]> {

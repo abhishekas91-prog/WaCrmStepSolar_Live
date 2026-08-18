@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import type { AuthUser } from "@/lib/mongo/compat";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import {
   canEditSettings as canEditSettingsFor,
@@ -46,7 +46,7 @@ interface AccountSummary {
 }
 
 interface AuthContextValue {
-  user: User | null;
+  user: AuthUser | null;
   profile: Profile | null;
   /**
    * Session-level loading. Flips to false as soon as we know whether
@@ -112,7 +112,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
  * component, avoiding internal lock contention in the Supabase client.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [account, setAccount] = useState<AccountSummary | null>(null);
   const [loading, setLoading] = useState(true);

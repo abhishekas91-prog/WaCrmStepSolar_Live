@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 import {
   serializeContact,
@@ -52,7 +51,7 @@ describe('serializeContact', () => {
 });
 
 describe('findOrCreateContact', () => {
-  const noopDb = {} as SupabaseClient;
+  const noopDb = {} as any;
 
   it('rejects a non-E.164 phone with a 400 ContactError', async () => {
     await expect(

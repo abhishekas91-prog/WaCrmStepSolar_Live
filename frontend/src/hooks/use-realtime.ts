@@ -3,7 +3,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Message, Conversation } from "@/types";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import type { CompatChannel } from "@/lib/mongo/compat";
 
 interface RealtimeEvent<T> {
   eventType: "INSERT" | "UPDATE" | "DELETE";
@@ -24,7 +24,7 @@ export function useRealtime({
   onConversationEvent,
   enabled = true,
 }: UseRealtimeOptions) {
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const channelRef = useRef<CompatChannel | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
   // Store latest callbacks in refs to avoid re-subscribing when the

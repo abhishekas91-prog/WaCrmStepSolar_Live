@@ -26,7 +26,7 @@
 // ============================================================
 
 import { NextResponse } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CompatClient } from "@/lib/mongo/compat";
 
 import { createClient } from "@/lib/supabase/server";
 import { hasMinRole, isAccountRole, type AccountRole } from "./roles";
@@ -79,8 +79,8 @@ export function toErrorResponse(err: unknown): NextResponse {
 // ------------------------------------------------------------
 
 export interface AccountContext {
-  /** Supabase SSR client, RLS scoped to the calling user. */
-  supabase: SupabaseClient;
+  /** Mongo compat client, RLS-equivalent scoped to the calling user. */
+  supabase: CompatClient;
   /** `auth.uid()` for the caller. Always defined when this resolves. */
   userId: string;
   /** Caller's account_id from their profile row. */

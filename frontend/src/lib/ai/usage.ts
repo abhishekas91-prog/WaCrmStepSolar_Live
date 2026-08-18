@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { CompatClient } from "@/lib/mongo/compat"
 import type { AiProvider, AiUsage } from './types'
 
 export interface LogAiUsageArgs {
@@ -27,7 +27,7 @@ export interface LogAiUsageArgs {
  * client).
  */
 export async function logAiUsage(
-  db: SupabaseClient,
+  db: CompatClient,
   args: LogAiUsageArgs,
 ): Promise<void> {
   if (!args.usage) return

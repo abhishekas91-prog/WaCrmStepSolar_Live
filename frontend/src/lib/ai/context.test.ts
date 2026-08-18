@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildConversationContext } from './context'
 
 /** Minimal fake matching the query chain in buildConversationContext:
  *  from().select().eq().eq().order().limit() → { data, error }. */
-function fakeDb(rows: unknown[]): SupabaseClient {
+function fakeDb(rows: unknown[]): any {
   const chain = {
     from: () => chain,
     select: () => chain,
@@ -12,7 +11,7 @@ function fakeDb(rows: unknown[]): SupabaseClient {
     order: () => chain,
     limit: () => Promise.resolve({ data: rows, error: null }),
   }
-  return chain as unknown as SupabaseClient
+  return chain as unknown as any
 }
 
 describe('buildConversationContext', () => {

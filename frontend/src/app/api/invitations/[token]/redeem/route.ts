@@ -18,7 +18,7 @@
 // ============================================================
 
 import { NextResponse } from "next/server";
-import type { PostgrestError } from "@supabase/supabase-js";
+import type { PostgrestErrorLike } from "@/lib/mongo/compat";
 
 import { hashInviteToken } from "@/lib/auth/invitations";
 import {
@@ -36,7 +36,7 @@ function getClientIp(request: Request): string {
   return "unknown";
 }
 
-function rpcErrorToResponse(err: PostgrestError): NextResponse {
+function rpcErrorToResponse(err: PostgrestErrorLike): NextResponse {
   if (err.code === "42501") {
     return NextResponse.json({ error: err.message }, { status: 401 });
   }

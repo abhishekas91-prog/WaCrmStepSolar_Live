@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 vi.mock('@/lib/whatsapp/encryption', () => ({
   decrypt: (s: string) => s,
@@ -52,7 +51,7 @@ function makeDb(rows: Row[], calls: Calls) {
     calls.rpcs.push({ name, args });
     return Promise.resolve({ data: null, error: null });
   };
-  return { from, rpc } as unknown as SupabaseClient;
+  return { from, rpc } as unknown as any;
 }
 
 const emptyCalls = (): Calls => ({ updates: [], rpcs: [] });
