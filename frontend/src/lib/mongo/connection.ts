@@ -14,7 +14,7 @@ import { MongoClient, type Db, type Collection } from "mongodb";
  */
 
 const MONGO_URL = process.env.MONGO_URL ?? "mongodb://localhost:27017";
-const DB_NAME = process.env.DB_NAME ?? "wacrm";
+const DB_NAME = process.env.DB_NAME ?? "stepsolar";
 
 const clients = new Map<string, MongoClient>();
 

@@ -4,7 +4,7 @@ import { readFile } from "@/lib/mongo/storage";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const SAFE_BUCKETS = new Set(["avatars", "flow-media", "chat-media"]);
+const SAFE_BUCKETS = new Set(["avatars", "flow-media", "chat-media", "invoices"]);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

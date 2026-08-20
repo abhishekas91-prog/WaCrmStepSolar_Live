@@ -1,36 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Generates a preview URL for an invoice PDF stored in the Mongo
+// storage layer (bucket "invoices"). Previously this proxied Supabase
+// Storage's /storage/v1/object/sign endpoint; now the same-origin
+// /api/_db/storage route streams the file bytes directly.
 export async function POST(req: NextRequest) {
   try {
     const { object_path, expires_in } = await req.json()
-    const SUPABASE_URL = process.env.SUPABASE_URL
-    const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-    const INVOICE_BUCKET = process.env.INVOICE_BUCKET || 'invoices'
-
-    if (!SUPABASE_URL || !SERVICE_KEY) {
-      return NextResponse.json({ error: 'server_not_configured' }, { status: 500 })
+    if (!object_path) {
+      return NextResponse.json({ error: 'invalid_request' }, { status: 400 })
     }
 
-    const url = `${SUPABASE_URL.replace(/\/+$/,'')}/storage/v1/object/sign/${encodeURIComponent(INVOICE_BUCKET)}/${encodeURIComponent(object_path)}`
-    const body = { expiresIn: expires_in || 3600 }
+    const expiresIn = expires_in || 3600
+    const signedUrl = `/api/_db/storage?bucket=invoices&path=${encodeURIComponent(object_path)}`
 
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${SERVICE_KEY}`,
-      },
-      body: JSON.stringify(body),
-    })
-
-    if (!r.ok) {
-      const txt = await r.text()
-      return NextResponse.json({ error: 'supabase_error', detail: txt }, { status: r.status })
-    }
-
-    const data = await r.json()
-    // data.signedURL or data.signedUrl depending on implementation
-    return NextResponse.json(data)
+    return NextResponse.json({ signedUrl, expires_in: expiresIn })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
