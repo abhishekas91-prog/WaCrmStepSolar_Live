@@ -1,4 +1,5 @@
 import { MongoClient, type Db, type Collection } from "mongodb";
+import { ensureIndexes } from "./indexes";
 
 /**
  * MongoDB connection singleton (server-side only).
@@ -17,6 +18,30 @@ const MONGO_URL = process.env.MONGO_URL ?? "mongodb://localhost:27017";
 const DB_NAME = process.env.DB_NAME ?? "stepsolar";
 
 const clients = new Map<string, MongoClient>();
+
+// When SEED_INDEXES_ON_START=1 the server bootstraps the same indexes
+// the migrations used to create (unique PKs, partial uniques, helpers).
+// Idempotent and non-destructive — safe to enable on an existing DB.
+// Fires asynchronously so it never blocks first request handling.
+if (process.env.SEED_INDEXES_ON_START === "1") {
+  void seedIndexesOnStart();
+}
+
+async function seedIndexesOnStart(): Promise<void> {
+  try {
+    const { created, skipped, failed } = await ensureIndexes(getDb(), (msg) =>
+      console.warn(`[mongo] ${msg}`),
+    );
+    console.log(
+      `[mongo] startup index seed done: ${created} created, ${skipped} skipped, ${failed} failed.`,
+    );
+  } catch (err) {
+    console.error(
+      "[mongo] startup index seed failed:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
 
 export function getClient(): MongoClient {
   let client = clients.get(MONGO_URL);

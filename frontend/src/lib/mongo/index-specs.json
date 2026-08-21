@@ -1,0 +1,216 @@
+{
+  "profiles": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "user_id": 1 }, "unique": true, "name": "profiles_user_id_key" }
+  ],
+  "accounts": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "owner_user_id": 1 }, "unique": true, "name": "idx_accounts_one_per_owner" }
+  ],
+  "account_invitations": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "token_hash": 1 }, "unique": true, "name": "account_invitations_token_hash_key" },
+    { "key": { "account_id": 1, "expires_at": 1 }, "name": "idx_account_invitations_account_pending" }
+  ],
+  "contacts": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "user_id": 1 }, "name": "idx_contacts_user_id" },
+    { "key": { "phone": 1 }, "name": "idx_contacts_phone" },
+    { "key": { "account_id": 1, "phone_normalized": 1 }, "unique": true, "name": "idx_contacts_account_phone_normalized" }
+  ],
+  "tags": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "custom_fields": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "contact_notes": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "contact_tags": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "contact_id": 1 }, "name": "idx_contact_tags_contact" },
+    { "key": { "tag_id": 1 }, "name": "idx_contact_tags_tag" },
+    { "key": { "contact_id": 1, "tag_id": 1 }, "unique": true, "name": "contact_tags_contact_tag_key" }
+  ],
+  "contact_custom_values": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "contact_id": 1 }, "name": "idx_contact_custom_values_contact" },
+    { "key": { "custom_field_id": 1 }, "name": "idx_contact_custom_values_field" },
+    { "key": { "contact_id": 1, "custom_field_id": 1 }, "unique": true, "name": "contact_custom_values_contact_field_key" }
+  ],
+  "conversations": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "user_id": 1 }, "name": "idx_conversations_user_id" },
+    { "key": { "contact_id": 1 }, "name": "idx_conversations_contact_id" },
+    { "key": { "account_id": 1, "contact_id": 1 }, "unique": true, "name": "idx_conversations_account_contact" }
+  ],
+  "messages": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "conversation_id": 1 }, "name": "idx_messages_conversation" },
+    { "key": { "message_id": 1 }, "name": "idx_messages_message_id" },
+    {
+      "key": { "conversation_id": 1, "message_id": 1 },
+      "unique": true,
+      "name": "idx_messages_conversation_message_id",
+      "partialFilterExpression": { "message_id": { "$type": "string" } }
+    }
+  ],
+  "message_reactions": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "conversation_id": 1 }, "name": "idx_message_reactions_conversation" },
+    { "key": { "message_id": 1 }, "name": "idx_message_reactions_message" }
+  ],
+  "whatsapp_config": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "unique": true, "name": "whatsapp_config_account_id_key" },
+    {
+      "key": { "phone_number_id": 1 },
+      "unique": true,
+      "name": "idx_whatsapp_config_phone_number_id",
+      "partialFilterExpression": { "phone_number_id": { "$type": "string" } }
+    },
+    { "key": { "registered_at": 1 }, "name": "idx_whatsapp_config_registered_at" }
+  ],
+  "message_templates": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "user_id": 1, "name": 1, "language": 1 }, "unique": true, "name": "message_templates_user_name_language_key" },
+    { "key": { "meta_template_id": 1 }, "name": "idx_message_templates_meta_template_id" }
+  ],
+  "pipelines": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "pipeline_stages": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "pipeline_id": 1 }, "name": "idx_pipeline_stages_pipeline" }
+  ],
+  "deals": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "assigned_to": 1 }, "name": "idx_deals_assigned_to" },
+    { "key": { "pipeline_id": 1 }, "name": "idx_deals_pipeline" },
+    { "key": { "stage_id": 1 }, "name": "idx_deals_stage" }
+  ],
+  "broadcasts": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "broadcast_recipients": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "broadcast_id": 1 }, "name": "idx_broadcast_recipients_broadcast" },
+    { "key": { "broadcast_id": 1, "status": 1 }, "name": "idx_broadcast_recipients_broadcast_status" },
+    {
+      "key": { "whatsapp_message_id": 1 },
+      "unique": true,
+      "name": "idx_broadcast_recipients_wamid",
+      "partialFilterExpression": { "whatsapp_message_id": { "$type": "string" } }
+    }
+  ],
+  "automations": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "user_id": 1 }, "name": "idx_automations_user_id" },
+    { "key": { "trigger_type": 1 }, "name": "idx_automations_active_trigger", "partialFilterExpression": { "is_active": true } },
+    { "key": { "account_id": 1, "trigger_type": 1 }, "name": "idx_automations_account_active_trigger" }
+  ],
+  "automation_steps": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "automation_id": 1 }, "name": "idx_automation_steps_automation_id" },
+    { "key": { "parent_step_id": 1 }, "name": "idx_automation_steps_parent" }
+  ],
+  "automation_logs": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "automation_id": 1 }, "name": "idx_automation_logs_automation" },
+    { "key": { "user_id": 1 }, "name": "idx_automation_logs_user" }
+  ],
+  "automation_pending_executions": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "run_at": 1 }, "name": "idx_automation_pending_due", "partialFilterExpression": { "status": "pending" } }
+  ],
+  "flows": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "user_id": 1, "trigger_type": 1 }, "name": "idx_flows_active_trigger" }
+  ],
+  "flow_nodes": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "flow_id": 1 }, "name": "idx_flow_nodes_flow" }
+  ],
+  "flow_runs": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "flow_id": 1, "started_at": 1 }, "name": "idx_flow_runs_flow_started" },
+    { "key": { "last_advanced_at": 1 }, "name": "idx_flow_runs_active_advanced" },
+    {
+      "key": { "account_id": 1, "contact_id": 1 },
+      "unique": true,
+      "name": "idx_one_active_run_per_contact",
+      "partialFilterExpression": { "status": "active" }
+    }
+  ],
+  "flow_run_events": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "flow_run_id": 1, "event_type": 1 }, "name": "idx_flow_run_events_run_type" },
+    { "key": { "flow_run_id": 1, "created_at": 1 }, "name": "idx_flow_run_events_run_time" }
+  ],
+  "member_presence": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "api_keys": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "key_hash": 1 }, "unique": true, "name": "api_keys_key_hash_key" }
+  ],
+  "webhook_endpoints": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "ai_configs": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "ai_knowledge_documents": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "ai_knowledge_chunks": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" },
+    { "key": { "document_id": 1 }, "name": "ai_knowledge_chunks_document_id_idx" }
+  ],
+  "ai_usage_log": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1, "created_at": 1 }, "name": "idx_ai_usage_log_account_created" }
+  ],
+  "quick_replies": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_account_id" }
+  ],
+  "notifications": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "user_id": 1, "created_at": 1 }, "name": "idx_notifications_user_created" },
+    { "key": { "user_id": 1, "is_read": 1 }, "name": "idx_notifications_user_unread" }
+  ],
+  "invoices": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "created_at": 1 }, "name": "idx_invoices_created_at" }
+  ],
+  "storage.files": [
+    { "key": { "bucket": 1, "path": 1 }, "unique": true, "name": "storage_files_bucket_path_key" },
+    { "key": { "owner_user_id": 1 }, "name": "storage_files_owner_user_id" }
+  ],
+  "realtime.changes": [
+    { "key": { "table": 1, "ts": 1 }, "name": "realtime_changes_table_ts" },
+    { "key": { "ts": 1 }, "name": "realtime_changes_ts_ttl", "expireAfterSeconds": 600 }
+  ]
+}
