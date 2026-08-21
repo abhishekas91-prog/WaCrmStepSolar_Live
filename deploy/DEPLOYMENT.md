@@ -1,93 +1,122 @@
-# Abhiwacrm — final deployment steps
+# WaCRM on MongoDB — deployment for `whatsapp.stepsolar.in`
 
-The app is running live at:
-**https://c3c98d31-c5c7-4148-9411-c1a26f6c7148.preview.emergentagent.com/login**
-
-Two things are left, and they need actions **you** must do (I don't
-have access to your Supabase dashboard or your DNS registrar).
-
----
-
-## Step 1 — Run the database migrations in Supabase (5 minutes, one time)
-
-Your Supabase project is empty right now. Without the schema, sign-up
-will fail with a Postgres error.
-
-1. Open <https://supabase.com/dashboard/project/cvavqjafypyvzjjdrccp/sql/new>
-2. Open the file **`/app/deploy/supabase_all_migrations.sql`** (37 migrations,
-   ~5100 lines) — copy its entire contents.
-3. Paste into the SQL editor. Click **Run**.
-4. Wait ~30–60 s. You should see "Success. No rows returned."
-5. In **Authentication → Providers → Email**, make sure **Enable email
-   signups** is on, and turn off "Confirm email" if you want to sign
-   in immediately (or leave it on and click the confirmation link).
-
-Now go back to the app URL, click **Create account**, and register the
-first user — that user becomes the owner/master admin of the workspace.
+The CRM now runs on MongoDB instead of Supabase. All business data lives in
+the same Atlas cluster (and database) the StepSolar backend uses — the
+database is `stepsolar`. There is no Postgres schema to migrate; indexes
+are created idempotently by the app itself.
 
 ---
 
-## Step 2 — Configure the WhatsApp integration inside the app
+## Prerequisites
 
-After you log in as owner, go to **Settings → WhatsApp** and paste:
+- Docker with `docker compose` (v2) on the host.
+- An Atlas connection string for the `stepsolar` database:
+  `mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net/?appName=...`
+  (Network Access must include the host's egress IP).
+- Required secrets: `JWT_SECRET`, `ENCRYPTION_KEY` (64 hex chars),
+  `META_APP_SECRET`.
+- ~10 GB free disk (frontend build layer).
 
-- **Phone Number ID:** `1290494244138702`
-- **Access Token:** `EAAey8txAllQBSDy...` (the long token you provided)
-- **Verify Token:** `verify-meTanu`
-- **Business Account ID / WABA ID:** (from your Meta business account)
+---
 
-The app stores these AES-256-GCM-encrypted in Postgres. They do **not**
-go into any `.env` file — this is exactly the "admin-only settings"
-flow you asked for.
+## Option A — Docker (recommended for a VPS / the Emergent host)
 
-Meta webhook URL to paste in your Meta App configuration:
+```bash
+cp deploy/.env.example deploy/.env   # then fill in the values
+deploy/deploy.sh
 ```
-https://c3c98d31-c5c7-4148-9411-c1a26f6c7148.preview.emergentagent.com/api/whatsapp/webhook
+
+`deploy/deploy.sh` validates the env file, builds the images, starts the
+stack, and waits for both services to be healthy.
+
+Stack (deploy/docker-compose.yml):
+
+| Service   | Port  | Purpose |
+|-----------|-------|---------|
+| `frontend`| 3000  | Next.js standalone server (screens + all `/api/*` routes) |
+| `proxy`   | 8001  | FastAPI ingress proxy: `/api/*` -> `frontend:3000` |
+
+Topology mirrors the Emergent ingress quirk (`/api/*` -> 8001, everything
+else -> 3000). If your reverse proxy can point the whole domain at one
+upstream, route everything at `frontend:3000` and drop the `proxy`
+service — Next.js serves `/api` itself.
+
+Reverse proxy (nginx) mapping:
+
 ```
-Verify token: `verify-meTanu`
+location /api/ { proxy_pass http://127.0.0.1:8001; }   # via proxy
+location /     { proxy_pass http://127.0.0.1:3000; }   # direct to Next
+```
 
-(After the custom domain is attached in Step 3, replace the URL with
-`https://whatsapp.stepsolar.in/api/whatsapp/webhook` in Meta.)
+Health checks: `GET /login` (frontend) and `GET /api/_proxy/health`
+(proxy).
 
-For **AI reply** (optional): Settings → AI Assistant → paste OpenAI or
-Anthropic key. Also stored encrypted in DB, per-account.
+### Indexes / first boot
 
----
+Set `SEED_INDEXES_ON_START=1` in `deploy/.env`. On boot the app creates or
+ensures all CRM indexes (unique PKs, partial uniques, TTL on
+`realtime.changes`) — idempotent and non-destructive, safe against the
+existing StepSolar data. Equivalent manual one-liner:
 
-## Step 3 — Attach the custom domain `whatsapp.stepsolar.in`
-
-Do this **inside the Emergent chat / dashboard**, not in code:
-
-1. In the Emergent UI, click **Publish** (top-right).
-2. Choose **Custom Domain** and enter `whatsapp.stepsolar.in`.
-3. Emergent will show you a **CNAME record** to add at your DNS
-   registrar for `stepsolar.in`.
-4. Add the CNAME. Propagation: 2 min – 24 h. SSL is auto-issued.
-5. Once live, update `NEXT_PUBLIC_SITE_URL` in
-   `/app/frontend/.env.local` to `https://whatsapp.stepsolar.in`
-   and restart the frontend (`sudo supervisorctl restart frontend`).
+```bash
+cd frontend
+MONGO_URL='mongodb+srv://user:pass@cluster0.xxxxx.mongodb.net/?appName=...' \
+DB_NAME=stepsolar \
+node scripts/seed-mongo.mjs
+```
 
 ---
 
-## Runtime config (for reference)
+## Option B — Render (or any Docker platform)
 
-Non-secret env keys are already set in `/app/frontend/.env.local`:
+Build context is `frontend/` (its own Dockerfile). Set:
 
-| Key | Value |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | https://cvavqjafypyvzjjdrccp.supabase.co |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | (set) |
-| `SUPABASE_SERVICE_ROLE_KEY` | (set) |
-| `ENCRYPTION_KEY` | (32-byte random hex, generated once — do NOT rotate, or every stored WhatsApp/AI token gets orphaned) |
-| `META_APP_ID` | 2273714456698993 |
-| `META_APP_SECRET` | (set — used to verify inbound Meta webhook HMAC) |
-| `AUTOMATION_CRON_SECRET` | (random, protects `/api/automations/cron`) |
-| `NEXT_PUBLIC_SITE_URL` | preview URL (update to `whatsapp.stepsolar.in` after step 3) |
+- Build args: `NEXT_PUBLIC_SITE_URL=https://whatsapp.stepsolar.in`,
+  `NEXT_PUBLIC_APP_LOCALE=en`
+- Runtime env: `MONGO_URL`, `DB_NAME=stepsolar`, `JWT_SECRET`,
+  `ENCRYPTION_KEY`, `META_APP_SECRET`, `SEED_INDEXES_ON_START=1`
+- Health check: `GET /login`, port 3000.
 
-## Architecture note (why there's a proxy)
+---
 
-Emergent ingress routes `/api/*` to port `:8001` (FastAPI). But this
-app is Next.js and its API routes live at `/api/*` on port `:3000`.
-So `/app/backend/server.py` is a **thin FastAPI proxy** that forwards
-`/api/*` requests it receives on `:8001` to the Next.js server on
-`localhost:3000`. Nothing was changed in the CRM code itself.
+## Environment variables
+
+| Variable | Build/Runtime | Notes |
+|---|---|---|
+| `MONGO_URL` | runtime | Atlas URI (falls back to `mongodb://localhost:27017`) |
+| `DB_NAME` | runtime | default `stepsolar` |
+| `JWT_SECRET` | runtime | session tokens; rotating invalidates all sessions |
+| `ENCRYPTION_KEY` | runtime | 64 hex chars, AES-256-GCM; do NOT rotate |
+| `META_APP_SECRET` | runtime | webhook HMAC verification (required) |
+| `META_APP_ID` | runtime | only for image-header message templates |
+| `AUTOMATION_CRON_SECRET` | runtime | Wait steps in automations |
+| `SEED_INDEXES_ON_START` | runtime | `1` = ensure indexes on boot |
+| `NEXT_PUBLIC_SITE_URL` | build | canonical URL, inlined into client bundle |
+| `NEXT_PUBLIC_APP_LOCALE` | build | default `en` |
+
+---
+
+## Post-deploy setup (in the app)
+
+1. Open `https://whatsapp.stepsolar.in`, create the first account — it
+   becomes the owner of the workspace.
+2. **Settings → WhatsApp**: paste Phone Number ID, Access Token, Verify
+   Token, WABA ID. These are stored AES-256-GCM-encrypted in Mongo, never
+   in the env file.
+3. **Meta App → Webhook**: point the webhook URL at
+   `https://whatsapp.stepsolar.in/api/whatsapp/webhook`, verify token from
+   Settings.
+4. **AI Assistant** (optional): paste an OpenAI/Anthropic key under
+   Settings → AI Assistant (per-account, encrypted in Mongo).
+
+---
+
+## Updating
+
+```bash
+git pull
+deploy/deploy.sh          # rebuild + restart; data lives in Atlas
+```
+
+The frontend image is stateless (no local writes); media and state live in
+Mongo, so redeploys are safe.

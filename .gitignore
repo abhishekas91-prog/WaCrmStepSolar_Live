@@ -85,6 +85,8 @@ frontend/node_modules/@next/swc-linux-arm64-musl/next-swc.linux-arm64-musl.node
 .env
 .env.*
 *.env
+# Keep the env-file template committed; only deploy/.env (secrets) stays ignored.
+!deploy/.env.example
 credentials.json
 *.key
 .credentials
