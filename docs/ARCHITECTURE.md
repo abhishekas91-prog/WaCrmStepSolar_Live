@@ -86,6 +86,9 @@ Frontend (Next.js)
 - POST /api/proxy/send
   - Proxy route that calls backend /invoices/send and injects AGENT_APPROVAL_SECRET from server env (so the secret is never exposed to client JS)
 
+- GET/POST /api/solar/config
+  - Solar bot settings: GET returns the account config + states + builtin subsidy data; POST (admin-only) merges partial updates into `solar_config`
+
 
 ## Sequence / Flow (text)
 
@@ -101,6 +104,82 @@ Frontend (Next.js)
 10. Agent clicks "View PDF" → frontend requests signed URL from /api/invoices/signed -> opens PDF in new tab.
 11. Agent clicks "Approve & Send" → frontend POSTs to /api/proxy/send which forwards to backend /invoices/send with AGENT_APPROVAL_SECRET.
 12. Backend /invoices/send downloads PDF from Supabase, uploads media to Meta (media endpoint), and sends the document message to the customer. It updates invoice `status` → `sent` with `sent_at` and stores Meta response in `meta_message`.
+
+
+## Solar AI agent (deterministic WhatsApp solar consultation)
+
+The Next.js frontend embeds a dedicated solar bot that answers residential rooftop-solar
+questions on WhatsApp (system sizing, cost, PM Surya Ghar subsidy + state top-ups, and the
+installation process) in short Hinglish/Hindi messages. All pricing / sizing / subsidy math is
+deterministic in code — the LLM never computes figures, it only formats them.
+
+### Placement in the webhook pipeline
+
+`frontend/src/app/api/whatsapp/webhook/route.ts` runs, in order:
+
+1. flows engine (`dispatchInboundToFlows`)
+2. **solar agent** (`dispatchInboundToSolar` from `frontend/src/lib/solar/agent.ts`)
+3. generic AI auto-reply (`dispatchInboundToAiReply`)
+4. webhook dispatch events
+
+When the solar agent returns `{ handled: true }` (it replied, or deliberately stayed silent on a
+duplicate), the generic AI auto-reply is suppressed. The agent never throws into the webhook
+path: on any failure it returns `{ handled: false }` so the AI reply (or silence) takes over.
+
+### Agent flow (`frontend/src/lib/solar/agent.ts`)
+
+1. Load the account's `solar_config` (defaults merged with DB row) and bail out when the bot is
+   disabled.
+2. Gate: engage only when the inbound message looks solar-related (`isSolarQuery`) or the thread
+   is already mid-solar-consultation and the customer just answered (`recentThread` +
+   `isSolarThread`).
+3. Read the contact's CRM profile (`loadSolarContactProfile`): state / bill custom fields.
+4. Merge facts across the recent customer messages + the current one (`extractFromHistory`):
+   bill amount (₹/rs/रु, ranges, "bill 2000"), monthly units ("250 unit"), and state
+   (`extractState`, normalized via `STATE_ALIASES` incl. "UP", "यूपी").
+5. Compute a recommendation (`buildRecommendation` → `computeRecommendation`): sized kW from
+   units ÷ generation factor, base cost = kW × ₹/kW, GST, PM Surya Ghar central slab
+   (₹30k/kW ×2, ₹18k/kW 3rd kW, cap ₹78k) + state top-up (admin overridable), net payable,
+   monthly savings and payback.
+6. Write newly learned facts back to the CRM contact as custom fields (`State`,
+   `Avg Monthly Bill`, `Monthly Units`) via `writeContactFacts`.
+7. Reply by intent: installation process (`formatProcess`), subsidy-only (`formatSubsidy`),
+   missing bill (`askForBill`), sizing-only when state unknown (`formatSizingOnly`), or full
+   quote (`formatQuote`). Duplicate-quote guard: identical recommendation already sent → stay
+   silent (still `handled: true`).
+8. Log the recommendation to `solar_recommendations` with a `config_snapshot`.
+
+### LLM context enrichment
+
+`frontend/src/lib/solar/context.ts` builds an authoritative `SOLAR CONSULTANT DATA` block
+(generated figures + "never recompute these" instruction) that is injected into the generic AI
+system prompt (`frontend/src/lib/ai/defaults.ts`) and the agent-draft route
+(`frontend/src/app/api/ai/draft/route.ts`) whenever the conversation is solar-related. The AI
+formats the numbers in a human reply but is told not to invent or recompute them.
+
+### Config & admin UI
+
+- `frontend/src/app/api/solar/config/route.ts` — GET (any member; returns config + states +
+  builtin subsidy data) / POST (admin-only, partial merge).
+- `frontend/src/components/settings/solar-config.tsx` — settings panel with pricing inputs,
+  per-state subsidy top-ups, process steps and a live preview computed with the same
+  `buildRecommendation` math.
+- `frontend/supabase/migrations/038_solar_config.sql` — `solar_config` (UNIQUE account_id) and
+  `solar_recommendations` tables with RLS (member read / admin write) and a `updated_at` trigger.
+- Mongo compat layer mirrors both tables in `frontend/src/lib/mongo/schema.ts` +
+  `index-specs.json` (this project keeps Postgres migrations and a Mongo "RLS substitute" in
+  sync — both must be updated together for new tables).
+
+### Solar engine modules (`frontend/src/lib/solar/`)
+
+- `types.ts` — shared types (`SolarConfig`, `SolarInput`, `SolarRecommendation`, ...).
+- `data.ts` — 21-state dataset + aliases, `DEFAULT_SOLAR_CONFIG`.
+- `calculator.ts` — kW sizing, GST, net payable, savings, payback (pure functions).
+- `subsidy.ts` — central slab + `STATE_ALIASES` + `normalizeState()` + admin overrides.
+- `extract.ts` — Hinglish/Hindi fact extraction, `isSolarQuery()`, `detectIntent()`.
+- `recommend.ts` — `buildRecommendation()` merging conversation facts + CRM profile.
+- `format.ts` — Hinglish WhatsApp reply formatters + `inr()`.
+- `config.ts` / `crm.ts` — DB config load/save and contact custom-field read/write.
 
 
 ## Deployment checklist
@@ -163,6 +242,10 @@ Frontend (Next.js)
 - Signed URL route: frontend/src/app/api/invoices/signed/route.ts
 - Proxy for send: frontend/src/app/api/proxy/send/route.ts
 - AI provider wrapper: backend/ai_service.py
+- Solar bot dispatch: frontend/src/lib/solar/agent.ts (+ the other modules under frontend/src/lib/solar/)
+- Solar bot wiring in webhook: frontend/src/app/api/whatsapp/webhook/route.ts
+- Solar config API: frontend/src/app/api/solar/config/route.ts
+- Solar settings panel: frontend/src/components/settings/solar-config.tsx
 
 
 ## Next recommended improvements

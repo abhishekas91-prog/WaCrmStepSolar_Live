@@ -1526,7 +1526,8 @@
       "fields": "필드 & 태그",
       "deals": "딜 & 통화",
       "members": "팀원",
-      "api": "API 키"
+      "api": "API 키",
+      "solar": "Solar Assistant"
     },
     "groups": {
       "account": "계정",
@@ -1714,6 +1715,48 @@
       "reindex": "재색인",
       "reindexTooltip": "모든 문서를 다시 임베딩합니다 (예: 임베딩 키 추가 후)",
       "loading": "불러오는 중…"
+    },
+    "solar": {
+      "title": "Solar Assistant",
+      "description": "고객의 전기 요금을 기반으로 태양광 시스템 용량을 산정하고 비용·보조금을 추정하며 설치 절차를 안내하는 WhatsApp 봇입니다. CRM 데이터를 활용하고 모든 추천을 기록합니다.",
+      "loadFailed": "태양광 설정을 불러오지 못했습니다",
+      "saveSuccess": "태양광 설정이 저장되었습니다.",
+      "saveFailed": "태양광 설정 저장에 실패했습니다.",
+      "saving": "저장 중…",
+      "save": "변경사항 저장",
+      "general": "일반",
+      "generalDesc": "봇의 전체 스위치입니다.",
+      "enabled": "Solar Assistant 활성화",
+      "enabledDesc": "수신 WhatsApp 메시지에 대한 태양광 용량/비용/보조금 봇을 켭니다.",
+      "autoReply": "WhatsApp 자동 답장",
+      "autoReplyDesc": "봇이 자동으로 답장하도록 허용합니다. 끄면 AI 초안에서만 사용할 수 있습니다.",
+      "companyName": "회사 이름",
+      "companyNamePlaceholder": "StepSolar Energy",
+      "pricing": "가격 및 가정",
+      "pricingDesc": "용량 산정과 비용 계산의 기준입니다. 모두 수정할 수 있습니다.",
+      "pricePerKw": "설치 비용 ₹/kW (계통 연계형)",
+      "pricePerKwHint": "패널, 인버터, BOS 및 설치를 포함한 kW당 전체 비용입니다.",
+      "gstRate": "GST 세율 (%)",
+      "gridTariff": "전력 요금 ₹/단위",
+      "gridTariffHint": "절감액 추정에 사용되는 고객의 단위당 요금입니다.",
+      "tariffPerUnit": "요금 → 단위 환산 ₹/단위",
+      "tariffPerUnitHint": "요금 금액만 공유했을 때 단위를 추정하기 위한 제수입니다.",
+      "generationFactor": "생성량 단위/kW/일",
+      "generationFactorHint": "kW당 하루 태양광 발전량 (인도 기준 약 4).",
+      "subsidy": "보조금",
+      "subsidyDesc": "중앙 PM Surya Ghar 기준은 고정입니다. 아래 주별 추가 보조금이 더해집니다.",
+      "searchStates": "주 검색…",
+      "state": "주",
+      "topUp": "추가 보조금 (₹)",
+      "noStates": "일치하는 주가 없습니다.",
+      "process": "절차 단계",
+      "processDesc": "고객이 설치 절차를 물으면 표시됩니다. 한 줄에 한 단계씩.",
+      "preview": "실시간 미리보기",
+      "previewDesc": "샘플 요금과 주를 입력하면 봇이 답장할 내용을 확인할 수 있습니다.",
+      "sampleBill": "샘플 월 요금 (₹)",
+      "sampleState": "샘플 주",
+      "previewEmpty": "요금 금액을 입력하면 미리보기가 표시됩니다.",
+      "adminOnlyHint": "계정 관리자만 태양광 설정을 변경할 수 있습니다."
     }
   }
 }

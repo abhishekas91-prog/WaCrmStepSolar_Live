@@ -9,6 +9,7 @@ import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
+import { dispatchInboundToSolar } from '@/lib/solar/agent'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
 import {
   handleTemplateWebhookChange,
@@ -838,18 +839,31 @@ async function processMessage(
     }).catch((err) => console.error('[automations] dispatch failed:', err))
   }
 
-  // AI auto-reply. Runs only for plain-text inbound the deterministic
-  // flow runner did NOT consume (flows win over the LLM), and only when
-  // the account has enabled it. Awaited inside `after()` (same reason as
-  // the webhook dispatch below); `dispatchInboundToAiReply` owns its
-  // eligibility gates + try/catch and never throws.
+  // Solar Assistant (deterministic consultation bot). Runs for
+  // plain-text inbound the flow runner did NOT consume. It owns solar
+  // queries (bill/units/state → kW, cost, subsidy, process) and
+  // answers deterministically with the account's solar config + the
+  // contact's CRM data. Awaited inside `after()` (same reason as the
+  // AI dispatch below); `dispatchInboundToSolar` owns its gates and
+  // never throws. When it handles the message the generic AI auto-reply
+  // stands down so the customer isn't double-texted.
   if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
-    await dispatchInboundToAiReply({
+    const solarHandled = await dispatchInboundToSolar({
       accountId,
+      userId: configOwnerUserId,
       conversationId: conversation.id,
       contactId: contactRecord.id,
-      configOwnerUserId,
+      message: inboundText,
     })
+
+    if (!solarHandled.handled) {
+      await dispatchInboundToAiReply({
+        accountId,
+        conversationId: conversation.id,
+        contactId: contactRecord.id,
+        configOwnerUserId,
+      })
+    }
   }
 
   // message.received webhook (public API). Awaited — not fire-and-forget

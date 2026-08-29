@@ -9,6 +9,7 @@ import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
 import { engineSendText } from '@/lib/flows/meta-send'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { buildSolarContext } from '@/lib/solar/context'
 
 interface DispatchArgs {
   /** Tenancy key — drives config, contact, and whatsapp_config lookups. */
@@ -106,10 +107,21 @@ export async function dispatchInboundToAiReply(
       latestUserMessage(messages),
     )
 
+    // Solar questions get authoritative computed numbers injected
+    // (sizing/cost/subsidy), so the LLM formats rather than guesses.
+    const solarContext = await buildSolarContext({
+      db,
+      accountId,
+      contactId,
+      conversationId,
+      messageText: latestUserMessage(messages),
+    })
+
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
+      solarContext,
     })
 
     const { text, handoff, usage } = await generateReply({

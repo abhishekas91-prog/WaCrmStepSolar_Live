@@ -10,6 +10,7 @@ import { latestUserMessage } from '@/lib/ai/query'
 import { logAiUsage } from '@/lib/ai/usage'
 import { supabaseAdmin } from '@/lib/ai/admin-client'
 import { AiError } from '@/lib/ai/types'
+import { buildSolarContext } from '@/lib/solar/context'
 
 /**
  * POST /api/ai/draft  (agent+)
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     // row means "not yours / not found" either way.
     const { data: conversation, error: convErr } = await supabase
       .from('conversations')
-      .select('id')
+      .select('id, contact_id')
       .eq('id', conversationId)
       .maybeSingle()
     if (convErr) {
@@ -98,10 +99,20 @@ export async function POST(request: Request) {
       latestUserMessage(messages),
     )
 
+    // Solar questions get authoritative computed numbers injected so
+    // the agent's drafted reply quotes the real kW/cost/subsidy.
+    const solarContext = await buildSolarContext({
+      db: supabase,
+      accountId,
+      contactId: (conversation as { contact_id?: string }).contact_id ?? '',
+      conversationId,
+      messageText: latestUserMessage(messages),
+    })
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'draft',
       knowledge,
+      solarContext,
     })
 
     const { text, usage } = await generateReply({ config, systemPrompt, messages })

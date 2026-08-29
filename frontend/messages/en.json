@@ -1526,7 +1526,8 @@
       "fields": "Fields & tags",
       "deals": "Deals & currency",
       "members": "Team members",
-      "api": "API keys"
+      "api": "API keys",
+      "solar": "Solar Assistant"
     },
     "groups": {
       "account": "Account",
@@ -1714,6 +1715,48 @@
       "reindex": "Reindex",
       "reindexTooltip": "Re-embed all documents (e.g. after adding an embeddings key)",
       "loading": "Loading…"
+    },
+    "solar": {
+      "title": "Solar Assistant",
+      "description": "A WhatsApp bot that sizes a solar system from the customer's bill, estimates cost + subsidy, and explains the process. It uses your CRM data and logs every recommendation.",
+      "loadFailed": "Failed to load solar config",
+      "saveSuccess": "Solar config saved.",
+      "saveFailed": "Failed to save solar config.",
+      "saving": "Saving…",
+      "save": "Save changes",
+      "general": "General",
+      "generalDesc": "Master switches for the bot.",
+      "enabled": "Enable Solar Assistant",
+      "enabledDesc": "Turns the solar sizing + cost/subsidy bot on for inbound WhatsApp messages.",
+      "autoReply": "Auto-reply on WhatsApp",
+      "autoReplyDesc": "Let the bot reply automatically. When off, the bot is available via the AI draft only.",
+      "companyName": "Company name",
+      "companyNamePlaceholder": "StepSolar Energy",
+      "pricing": "Pricing & assumptions",
+      "pricingDesc": "These drive the sizing and cost math. All figures are editable.",
+      "pricePerKw": "Installed cost ₹/kW (on-grid)",
+      "pricePerKwHint": "Fully-loaded price per kW — panels, inverter, BOS and installation.",
+      "gstRate": "GST rate (%)",
+      "gridTariff": "Grid tariff ₹/unit",
+      "gridTariffHint": "What the customer pays per unit — used for savings estimates.",
+      "tariffPerUnit": "Bill → units divisor ₹/unit",
+      "tariffPerUnitHint": "Divides a bill amount to estimate units when the customer shares only money.",
+      "generationFactor": "Generation units/kW/day",
+      "generationFactorHint": "Typical solar generation per kW per day (~4 in India).",
+      "subsidy": "Subsidy",
+      "subsidyDesc": "Central PM Surya Ghar slab is fixed. State top-ups below are added on top — edit per state, search to filter.",
+      "searchStates": "Search states…",
+      "state": "State",
+      "topUp": "Top-up (₹)",
+      "noStates": "No states match.",
+      "process": "Process steps",
+      "processDesc": "Shown when a customer asks how the installation works. One step per line.",
+      "preview": "Live preview",
+      "previewDesc": "Type a sample bill and pick a state to see exactly what the bot replies.",
+      "sampleBill": "Sample monthly bill (₹)",
+      "sampleState": "Sample state",
+      "previewEmpty": "Enter a bill amount to preview.",
+      "adminOnlyHint": "Only account admins can change the solar configuration."
     }
   }
 }

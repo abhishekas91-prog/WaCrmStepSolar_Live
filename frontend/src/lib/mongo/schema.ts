@@ -74,6 +74,8 @@ export const TABLES: Record<string, TableDef> = {
   ai_knowledge_chunks: { kind: "account", minWriteRole: "admin" },
   ai_usage_log: { kind: "account", minReadRole: "admin" }, // read admin+, service writes
   quick_replies: { kind: "account", minWriteRole: "agent" },
+  solar_config: { kind: "account", minWriteRole: "admin" },
+  solar_recommendations: { kind: "account", minWriteRole: "agent" }, // service + agent writes
 
   // ---- user-scoped --------------------------------------------
   notifications: { kind: "user" },

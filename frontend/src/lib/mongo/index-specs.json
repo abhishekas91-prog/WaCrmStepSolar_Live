@@ -205,6 +205,15 @@
     { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
     { "key": { "created_at": 1 }, "name": "idx_invoices_created_at" }
   ],
+  "solar_config": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1 }, "name": "idx_solar_config_account" }
+  ],
+  "solar_recommendations": [
+    { "key": { "id": 1 }, "unique": true, "name": "pk_id_unique" },
+    { "key": { "account_id": 1, "created_at": -1 }, "name": "idx_solar_recommendations_account_created" },
+    { "key": { "contact_id": 1 }, "name": "idx_solar_recommendations_contact" }
+  ],
   "storage.files": [
     { "key": { "bucket": 1, "path": 1 }, "unique": true, "name": "storage_files_bucket_path_key" },
     { "key": { "owner_user_id": 1 }, "name": "storage_files_owner_user_id" }
