@@ -75,6 +75,25 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   /**
+   * Backward-compatible alias for the Mongo proxy API routes.
+   *
+   * Next.js treats folders beginning with `_` as private, so
+   * `src/app/api/_db/*` is never registered as public routes — on Vercel
+   * every `/api/_db/...` request returned the 404 page, which made the
+   * login/signup forms hang (the auth + query proxies were unreachable).
+   * The routes now live under `/api/db/*`; this rewrite keeps any
+   * stale/cached client bundle that still calls `/api/_db/*` working.
+   */
+  async rewrites() {
+    return [
+      {
+        source: "/api/_db/:path*",
+        destination: "/api/db/:path*",
+      },
+    ];
+  },
+
+  /**
    * Cross-origin dev access (Next.js 16).
    *
    * Next 16 blocks requests to dev-only resources (`/_next/*` internals,

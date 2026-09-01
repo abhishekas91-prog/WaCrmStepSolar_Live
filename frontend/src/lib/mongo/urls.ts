@@ -11,5 +11,5 @@ export function buildPublicUrl(
 ): string {
   const base = origin ?? process.env.NEXT_PUBLIC_APP_URL ?? "";
   const params = new URLSearchParams({ bucket, path });
-  return `${base}/api/_db/storage?${params.toString()}`;
+  return `${base}/api/db/storage?${params.toString()}`;
 }

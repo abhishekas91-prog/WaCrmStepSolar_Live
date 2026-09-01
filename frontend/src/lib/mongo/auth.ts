@@ -4,7 +4,7 @@
 // - `users` collection stores profiles with bcrypt password hashes.
 // - Sessions are JWTs (HS256 via `jose`) held in an httpOnly cookie.
 // - The browser client proxies every auth action through
-//   `/api/_db/auth` (browsers can't reach Mongo directly); the server
+//   `/api/db/auth` (browsers can't reach Mongo directly); the server
 //   client calls these functions directly.
 // ============================================================
 
@@ -191,7 +191,15 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 async function writeSessionCookie(session: AuthSession): Promise<void> {
   const cookieStore = await cookies();
-  const value = Buffer.from(JSON.stringify(session), "utf8").toString("base64url");
+  // Only the access token lives in the cookie. Storing the full session
+  // JSON (user metadata, identities, etc.) can push the cookie past the
+  // ~4 KB browser/edge limit and the session silently stops persisting
+  // (login page looks stuck). The user is rehydrated from Mongo by
+  // `decodeAuthCookie` on every read.
+  const value = Buffer.from(
+    JSON.stringify({ access_token: session.access_token }),
+    "utf8",
+  ).toString("base64url");
   cookieStore.set(AUTH_COOKIE, value, {
     httpOnly: true,
     sameSite: "lax",
