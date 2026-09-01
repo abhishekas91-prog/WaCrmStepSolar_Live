@@ -2,7 +2,7 @@
 // MongoDB storage — replaces Supabase Storage buckets (avatars,
 // flow-media, chat-media). Files are stored as documents in a
 // `storage.files` collection (GridFS-style single document) and
-// served through /api/_db/storage.
+// served through /api/db/storage.
 //
 // Bucket RLS model (migrations 008/016/020/023):
 //   - avatars:    user-scoped writes (`avatars/<uid>/...`), public read

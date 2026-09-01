@@ -5,7 +5,7 @@
 // - Server client: executes queries directly against Mongo, scoped by
 //   the request session (user client) or bypassing scoping (service).
 // - Browser client: lives in `browser-client.ts` (serializes every
-//   call and proxies it through `/api/_db/*`). It is re-exported here
+//   call and proxies it through `/api/db/*`). It is re-exported here
 //   for convenience but is a separate module so the browser bundle
 //   never pulls in the Mongo driver or `next/headers`.
 // ============================================================
@@ -202,7 +202,7 @@ export function serviceContext(): QueryContext {
 }
 
 // ============================================================
-// Server auth helpers used by the /api/_db/auth proxy.
+// Server auth helpers used by the /api/db/auth proxy.
 // ============================================================
 
 export async function proxyAuthAction(

@@ -4,7 +4,7 @@
 // Postgres Realtime pushed row events over a websocket; Mongo has no
 // equivalent. Every write that goes through the query engine (or the
 // RPC layer) records a row in the `realtime.changes` collection. A
-// browser channel polls `/api/_db/realtime`, which returns changes
+// browser channel polls `/api/db/realtime`, which returns changes
 // newer than the client's cursor scoped to the caller's account.
 //
 // The `ts` is a monotonic-ish millisecond timestamp; clients pass back

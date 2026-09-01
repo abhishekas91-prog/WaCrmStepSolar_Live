@@ -1,6 +1,6 @@
 // ============================================================
 // Browser client — serializes every call and proxies it through the
-// `/api/_db/*` Next.js routes (a browser cannot reach Mongo itself).
+// `/api/db/*` Next.js routes (a browser cannot reach Mongo itself).
 //
 // This module MUST NOT import any server-only module (mongodb,
 // next/headers, connection, auth, rpc, storage, query-builder) — the
@@ -58,9 +58,10 @@ class PollingChannel implements CompatChannel {
       if (this.stopped) return;
       const since = this.cursors.get(this.table) ?? null;
       try {
-        const res = await fetch("/api/_db/realtime", {
+        const res = await fetch("/api/db/realtime", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ table: this.table, since }),
         });
         if (!res.ok) return;
@@ -100,13 +101,26 @@ function emitAuth(event: string, session: AuthSession | null): void {
   for (const cb of authListeners) cb(event, session);
 }
 
+async function parseJsonResponse<T>(res: Response): Promise<T> {
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      res.status === 404
+        ? "Auth service is unavailable. Redeploy the latest build."
+        : `Unexpected response (${res.status})`,
+    );
+  }
+  return (await res.json()) as T;
+}
+
 async function authAction<T>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
-  const res = await fetch("/api/_db/auth", {
+  const res = await fetch("/api/db/auth", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ action, ...payload }),
   });
-  return (await res.json()) as T;
+  return parseJsonResponse<T>(res);
 }
 
 function createBrowserAuth(): CompatClient["auth"] {
@@ -184,7 +198,11 @@ function createBrowserStorage(): CompatClient["storage"] {
             "file",
             file instanceof File ? file : new File([file as Blob], path.split("/").pop() ?? "file"),
           );
-          const res = await fetch("/api/_db/storage/upload", { method: "POST", body });
+          const res = await fetch("/api/db/storage/upload", {
+            method: "POST",
+            credentials: "include",
+            body,
+          });
           return (await res.json()) as { data: { path: string } | null; error: CompatError | null };
         },
         getPublicUrl(path) {
@@ -192,9 +210,10 @@ function createBrowserStorage(): CompatClient["storage"] {
           return { data: { publicUrl: buildPublicUrl(bucket, path, origin) } };
         },
         async remove(paths) {
-          const res = await fetch("/api/_db/storage/remove", {
+          const res = await fetch("/api/db/storage/remove", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ bucket, paths }),
           });
           return (await res.json()) as { error: CompatError | null };
@@ -212,9 +231,10 @@ export function createBrowserCompatClient(): CompatClient {
   const client: CompatClient = {
     from(table: string) {
       return new BrowserQueryBuilder(table, async (state): Promise<QueryResult> => {
-        const res = await fetch("/api/_db/query", {
+        const res = await fetch("/api/db/query", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ state }),
         });
         if (!res.ok) {

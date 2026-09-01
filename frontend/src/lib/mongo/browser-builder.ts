@@ -1,6 +1,6 @@
 // ============================================================
 // Browser query builder — a chainable PostgREST-style builder that
-// serializes its state and POSTs it to `/api/_db/query`. This module
+// serializes its state and POSTs it to `/api/db/query`. This module
 // has NO server-only imports (no mongodb / next/headers), so it is
 // safe to bundle for the browser.
 //

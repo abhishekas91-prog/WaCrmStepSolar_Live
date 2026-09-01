@@ -50,13 +50,20 @@ function LoginPageInner() {
     setError(null);
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
+      if (error) {
+        setError(error.message);
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.error("[login] signIn failed:", err);
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
       return;
     }
