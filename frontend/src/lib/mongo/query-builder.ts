@@ -798,6 +798,30 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+/** Shared PostgREST-compatible single()/maybeSingle() handling, used
+ * both by plain selects and by the "return representation" path of
+ * insert/update/upsert/delete (i.e. `.insert(...).select().single()`). */
+function applySingleMode(
+  rows: any[],
+  count: number | null,
+  singleMode: "none" | "single" | "maybeSingle",
+): { data: any; count: number | null; error: PostgrestErrorLike | null } {
+  if (singleMode === "single") {
+    if (rows.length !== 1) {
+      return {
+        data: null,
+        count,
+        error: { message: "JSON object requested, multiple (or no) rows returned", code: "PGRST116" },
+      };
+    }
+    return { data: rows[0], count, error: null };
+  }
+  if (singleMode === "maybeSingle") {
+    return { data: rows.length === 1 ? rows[0] : null, count, error: null };
+  }
+  return { data: rows, count, error: null };
+}
+
 function ensureId(row: Row): Row {
   if (!row.id) row.id = crypto.randomUUID();
   if (!row.created_at) row.created_at = nowIso();
@@ -818,14 +842,26 @@ export async function executeQuery(
     switch (state.mode) {
       case "select":
         return execSelect(state, ctx, topFilters, embeddedFilters);
-      case "insert":
-        return execInsert(state, ctx, topFilters);
-      case "update":
-        return execUpdate(state, ctx, topFilters);
-      case "delete":
-        return execDelete(state, ctx, topFilters);
-      case "upsert":
-        return execUpsert(state, ctx, topFilters);
+      case "insert": {
+        const res = await execInsert(state, ctx, topFilters);
+        if (res.error) return res;
+        return applySingleMode(res.data, res.count, state.singleMode);
+      }
+      case "update": {
+        const res = await execUpdate(state, ctx, topFilters);
+        if (res.error) return res;
+        return applySingleMode(res.data, res.count, state.singleMode);
+      }
+      case "delete": {
+        const res = await execDelete(state, ctx, topFilters);
+        if (res.error) return res;
+        return applySingleMode(res.data, res.count, state.singleMode);
+      }
+      case "upsert": {
+        const res = await execUpsert(state, ctx, topFilters);
+        if (res.error) return res;
+        return applySingleMode(res.data, res.count, state.singleMode);
+      }
       default:
         return { data: null, count: null, error: makeError(new Error(`Unknown mode ${state.mode}`)) };
     }
@@ -892,28 +928,7 @@ async function execSelect(
     page = await attachEmbeds(page, parsed.embeds, embeddedFilters, ctx, state.table);
   }
 
-  if (state.singleMode === "single") {
-    if (page.length === 0) {
-      return {
-        data: null,
-        count,
-        error: { message: "JSON object requested, multiple (or no) rows returned", code: "PGRST116" },
-      };
-    }
-    if (page.length > 1) {
-      return {
-        data: null,
-        count,
-        error: { message: "JSON object requested, multiple (or no) rows returned", code: "PGRST116" },
-      };
-    }
-    return { data: page[0], count, error: null };
-  }
-  if (state.singleMode === "maybeSingle") {
-    return { data: page.length === 1 ? page[0] : null, count, error: null };
-  }
-
-  return { data: page, count, error: null };
+  return applySingleMode(page, count, state.singleMode);
 }
 
 async function execInsert(
@@ -1051,7 +1066,21 @@ export class MongoQueryBuilder {
   select(columns?: string, opts?: { count?: "exact"; head?: boolean }): this {
     this.state.selectCols = columns ?? "*";
     this.state.selectOpts = opts ?? null;
-    this.state.mode = "select";
+    // PostgREST semantics: chaining .select() after .insert()/.update()/
+    // .upsert()/.delete() means "return the affected rows" (the
+    // "representation" the write already produced) — it does NOT start a
+    // brand-new, unfiltered select query. Only switch into "select" mode
+    // when there is no write operation already staged; otherwise we'd
+    // silently discard the pending insert/update/upsert/delete and run a
+    // bogus select instead (which is what was happening before this fix).
+    if (
+      this.state.mode !== "insert" &&
+      this.state.mode !== "update" &&
+      this.state.mode !== "upsert" &&
+      this.state.mode !== "delete"
+    ) {
+      this.state.mode = "select";
+    }
     return this;
   }
 
