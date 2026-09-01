@@ -287,20 +287,36 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
       for (let i = 0; i < value.messages.length; i++) {
         const message = value.messages[i]
-        const contact = value.contacts[i] || value.contacts[0]
+        const contact = value.contacts?.[i] || value.contacts?.[0]
 
-        await processMessage(
-          message,
-          contact,
-          // Tenancy — drives every contact / conversation lookup
-          // and the engines' active-row dispatch.
-          config.account_id,
-          // Audit / sender-of-record — used as the user_id on row
-          // inserts that need it for NOT NULL FK compliance. Always
-          // the admin who saved the WhatsApp config.
-          config.user_id,
-          decryptedAccessToken
-        )
+        // One malformed message (missing/undefined `contact.profile`,
+        // an unexpected shape, etc.) must not abort the rest of the
+        // batch. Without this try/catch, a single throw here unwinds
+        // the whole processWebhook() call and every message after it
+        // in this delivery — including messages from OTHER contacts —
+        // is silently dropped. Since we already ACK'd Meta with 200
+        // before this runs (see after() above), a dropped message here
+        // is gone for good; Meta will not retry it.
+        try {
+          await processMessage(
+            message,
+            contact,
+            // Tenancy — drives every contact / conversation lookup
+            // and the engines' active-row dispatch.
+            config.account_id,
+            // Audit / sender-of-record — used as the user_id on row
+            // inserts that need it for NOT NULL FK compliance. Always
+            // the admin who saved the WhatsApp config.
+            config.user_id,
+            decryptedAccessToken
+          )
+        } catch (error) {
+          console.error(
+            '[webhook] failed to process message, continuing with rest of batch:',
+            message.id,
+            error
+          )
+        }
       }
     }
   }
@@ -558,7 +574,7 @@ async function handleReaction(
 
 async function processMessage(
   message: WhatsAppMessage,
-  contact: { profile: { name: string }; wa_id: string },
+  contact: { profile?: { name?: string }; wa_id?: string } | undefined,
   // Tenancy. Resolved from the matched whatsapp_config row; every
   // contact / conversation / message row created downstream is
   // stamped with this so any member of the account can see it.
@@ -570,7 +586,12 @@ async function processMessage(
   accessToken: string
 ) {
   const senderPhone = normalizePhone(message.from)
-  const contactName = contact.profile.name
+  // `contact` (and `contact.profile.name`) can be missing — Meta doesn't
+  // always send a matching `contacts` entry for every message in a
+  // batch. Fall back to the phone number rather than crashing, which
+  // used to abort processing for every OTHER message in the same
+  // webhook delivery (see the try/catch around processMessage's caller).
+  const contactName = contact?.profile?.name || senderPhone
 
   // Find or create contact
   const contactOutcome = await findOrCreateContact(
