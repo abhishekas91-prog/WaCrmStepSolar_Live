@@ -1016,7 +1016,12 @@ async function execUpsert(
         continue;
       }
     }
-    const { _id, ...rest } = row;
+    // Exclude _id (Mongo internal), id, and created_at from the $set
+    // payload — they must only ever be written via $setOnInsert (below),
+    // otherwise Mongo rejects the update with "conflicting update
+    // operators" (error 40) because the same path would be targeted by
+    // both $set and $setOnInsert.
+    const { _id, id, created_at, ...rest } = row;
     const result = await coll.findOneAndUpdate(
       conflictFilter,
       {
