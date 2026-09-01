@@ -1,53 +1,29 @@
 # syntax=docker/dockerfile:1
 
-# --------------------------------------------------------------------------
-# WaCRM (MongoDB edition) — multi-stage build.
-#
-# Build args (inlined into the client bundle at build time):
-#   NEXT_PUBLIC_SITE_URL    canonical public URL, e.g. https://whatsapp.stepsolar.in
-#   NEXT_PUBLIC_APP_LOCALE  default locale (default: en)
-#
-# Server-only secrets (MONGO_URL, DB_NAME, JWT_SECRET, ENCRYPTION_KEY,
-# META_APP_SECRET, ...) are read at RUNTIME from the container env and must
-# NOT be baked into the image.
-#
-# The builder and runner use the same glibc base image: the standalone
-# bundle carries sharp's native binary for next/image, which must match the
-# runtime platform.
-# --------------------------------------------------------------------------
+# Production Dockerfile for the WaCRM Next.js app.
+# This app serves BOTH the frontend UI and the /api/* routes
+# (including /api/whatsapp/webhook) directly — no separate proxy needed.
 
-FROM node:22-slim AS deps
+FROM node:20-slim AS deps
 WORKDIR /app
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+COPY package.json package-lock.json* ./
+RUN npm install
 
-FROM node:22-slim AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+RUN NODE_OPTIONS=--max-old-space-size=6144 npm run build
 
-ARG NEXT_PUBLIC_SITE_URL
-ARG NEXT_PUBLIC_APP_LOCALE=en
-ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
-    NEXT_PUBLIC_APP_LOCALE=$NEXT_PUBLIC_APP_LOCALE
-
-RUN yarn build
-
-FROM node:22-slim AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
-ENV NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1 \
-    PORT=3000 \
-    HOSTNAME=0.0.0.0
+ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 nextjs \
-    && adduser --system --uid 1001 nextjs
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/next.config.* ./
 
-COPY --from=builder --chown=nextjs:nextjs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nextjs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nextjs /app/public ./public
-
-USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["npm", "run", "start"]
