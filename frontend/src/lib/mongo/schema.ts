@@ -152,6 +152,15 @@ export interface Relation {
 
 export const RELATIONS: Record<string, Relation> = {
   "messages.contacts": { kind: "parentCol", parentCol: "contact_id", childCol: "id" },
+  // Was missing — every `contact:contacts(*)` embed on `conversations`
+  // (the Inbox list + thread panel's CONVERSATION_SELECT) silently
+  // resolved to nothing instead of erroring, because attachEmbeds()
+  // treats an unresolved relation as "attach nothing rather than
+  // crash". That's what showed every contact as "Unknown" and kept
+  // the thread panel stuck on its empty state even with a conversation
+  // selected (message-thread.tsx bails to the empty state whenever
+  // `contact` is falsy).
+  "conversations.contacts": { kind: "parentCol", parentCol: "contact_id", childCol: "id" },
   "deals.contacts": { kind: "parentCol", parentCol: "contact_id", childCol: "id" },
   "deals.pipeline_stages": { kind: "parentCol", parentCol: "stage_id", childCol: "id" },
   "deals.profiles": { kind: "parentCol", parentCol: "assigned_to", childCol: "id" },
