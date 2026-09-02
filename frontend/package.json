@@ -7,8 +7,8 @@
   },
   "scripts": {
     "dev": "next dev -p 3000 -H 0.0.0.0",
-    "build": "next build",
-    "start": "sh -c 'test -f .next/BUILD_ID || NODE_OPTIONS=--max-old-space-size=6144 next build; next start -p 3000 -H 0.0.0.0'",
+    "build": "next build && node scripts/prepare-standalone.mjs",
+    "start": "sh -c 'test -f .next/standalone/server.js || npm run build; HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node .next/standalone/server.js'",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
