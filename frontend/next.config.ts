@@ -109,6 +109,7 @@ const nextConfig: NextConfig = {
    * has no effect on a production build.
    */
   allowedDevOrigins: [
+    "*.monkeycode-ai.live",
     "*.ngrok-free.app",
     "*.ngrok.app",
     "*.ngrok.io",
