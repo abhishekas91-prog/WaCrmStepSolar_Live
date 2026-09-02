@@ -78,7 +78,7 @@ function toEngineConfig(form: {
   };
 }
 
-export function SolarConfigPanel() {
+export function SolarConfigPanel({ hideHead = false }: { hideHead?: boolean }) {
   const { accountRole } = useAuth();
   const canEdit = accountRole ? canEditSettings(accountRole) : false;
   const t = useTranslations('Settings.solar');
@@ -228,7 +228,9 @@ export function SolarConfigPanel() {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <SettingsPanelHead title={t('title')} description={t('description')} />
+      {!hideHead && (
+        <SettingsPanelHead title={t('title')} description={t('description')} />
+      )}
 
       {/* General */}
       <Card>

@@ -10,7 +10,6 @@ import { useTotalUnread } from "@/hooks/use-total-unread";
 import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import {
   Bell,
-  Bot,
   Crown,
   GitBranch,
   LayoutDashboard,
@@ -19,6 +18,7 @@ import {
   Radio,
   Settings,
   Shield,
+  Sun,
   User,
   UserCog,
   Users,
@@ -99,7 +99,7 @@ const navItems: NavItem[] = [
   { href: "/broadcasts", labelKey: "broadcasts", icon: Radio },
   { href: "/automations", labelKey: "automations", icon: Zap },
   { href: "/flows", labelKey: "flows", icon: Workflow, beta: true },
-  { href: "/agents", labelKey: "aiAgents", icon: Bot },
+  { href: "/solar", labelKey: "solarAssistant", icon: Sun },
 ];
 
 const bottomNavItems = [
