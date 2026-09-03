@@ -58,6 +58,20 @@ interface WhatsAppMessage {
   }
   /** Present when the customer swipe-replies to one of our messages. */
   context?: { id: string }
+  /**
+   * Sent by Meta alongside `type: "unsupported"` (polls, view-once
+   * photos/videos, and a handful of newer WhatsApp client message
+   * formats the Cloud API can't decode). `error_data.details` / `title`
+   * carry the human-readable reason — without reading this, every one
+   * of these messages renders as an opaque "[Unsupported message type:
+   * unsupported]" bubble with no explanation of what the customer sent.
+   */
+  errors?: Array<{
+    code: number
+    title: string
+    message?: string
+    error_data?: { details?: string }
+  }>
 }
 
 interface WhatsAppWebhookEntry {
@@ -1038,6 +1052,24 @@ async function parseMessageContent(
         }
       }
       return { ...empty, contentText: '[Interactive reply]' }
+    }
+
+    case 'unsupported': {
+      // Meta's own catch-all for message formats the Cloud API can't
+      // decode — most commonly polls, view-once photos/videos, and a
+      // few newer WhatsApp client features. The customer DID send
+      // something real; we just can't fetch its content, only Meta's
+      // stated reason (if any) via `errors`.
+      const reason =
+        message.errors?.[0]?.error_data?.details ||
+        message.errors?.[0]?.title ||
+        message.errors?.[0]?.message
+      return {
+        ...empty,
+        contentText: reason
+          ? `[Unsupported message: ${reason}]`
+          : '[Unsupported message — likely a poll or view-once photo/video, which WhatsApp does not deliver to businesses]',
+      }
     }
 
     default:
