@@ -1,15 +1,37 @@
-# Here are your Instructions
+# WaCrmStepSolar
 
-# WaCrmStepSolar - Multi AI Integration
+WhatsApp CRM (inbox, contacts, pipelines, broadcasts, automations, flows, solar quotes, invoices) plus a native Android app that runs every one of those functions.
+
+## Android app
+
+The `android/` folder is a native WebView app. Same login, same APIs, same data as the web CRM.
+
+```bash
+# Android Studio: open the android/ folder, then Run
+# or
+cd android && ./gradlew assembleDebug
+```
+
+Full install notes: `android/README.md`
+
+On a phone you can also Add to Home Screen (PWA) from the web CRM — standalone, with a bottom tab bar for Inbox, Contacts, Deals, Solar, and More.
+
+## Web CRM
+
+See `frontend/README.md` and `deploy/DEPLOYMENT.md`.
+
+## Multi AI Integration
 
 Priority: Meta AI > Gemini > Groq > OpenAI > Anthropic
 
-## Setup
-1. pip install requests python-dotenv
-2. Copy.env.example to.env and add keys
-3. Import AIService in your webhook
+```bash
+pip install requests python-dotenv
+```
 
-## Usage
+Copy `.env.example` to `.env` and add keys, then:
+
+```python
 from ai_service import AIService
 ai = AIService()
 reply = ai.get_reply(customer_msg, "Your FAQ here")
+```

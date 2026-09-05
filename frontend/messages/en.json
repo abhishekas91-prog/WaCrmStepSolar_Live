@@ -26,6 +26,7 @@
     "flows": "Flows",
     "aiAgents": "AI Agents",
     "solarAssistant": "Solar Assistant",
+    "invoices": "Invoices",
     "settings": "Settings",
     "beta": "Beta",
     "unreadConversations": "{count} unread {count, plural, =1 {conversation} other {conversations}}",
@@ -50,6 +51,8 @@
     "broadcasts": "Broadcasts",
     "automations": "Automations",
     "solar": "Solar Assistant",
+    "invoices": "Invoices",
+    "flows": "Flows",
     "settings": "Settings",
     "openMenu": "Open menu",
     "openAccountMenu": "Open account menu",
@@ -58,6 +61,14 @@
     "menuProfile": "Profile",
     "menuSettings": "Settings",
     "menuSignOut": "Sign out"
+  },
+  "MobileTabBar": {
+    "label": "Primary",
+    "inbox": "Inbox",
+    "contacts": "Contacts",
+    "pipelines": "Deals",
+    "solar": "Solar",
+    "more": "More"
   },
   "ModeToggle": {
     "switchMode": "Switch to {mode} mode"

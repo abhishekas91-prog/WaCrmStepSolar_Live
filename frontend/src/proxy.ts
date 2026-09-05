@@ -53,7 +53,19 @@ export async function proxy(request: NextRequest) {
   }
 
   // Protected pages - redirect to login if not authenticated
-  const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings']
+  const protectedPaths = [
+    '/dashboard',
+    '/inbox',
+    '/contacts',
+    '/pipelines',
+    '/broadcasts',
+    '/automations',
+    '/settings',
+    '/flows',
+    '/notifications',
+    '/solar',
+    '/invoices',
+  ]
   if (
     !user &&
     protectedPaths.some((path) => request.nextUrl.pathname.startsWith(path))

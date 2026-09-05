@@ -26,6 +26,7 @@
     "flows": "플로우",
     "aiAgents": "AI 에이전트",
     "solarAssistant": "Solar Assistant",
+    "invoices": "인보이스",
     "settings": "설정",
     "beta": "베타",
     "unreadConversations": "읽지 않은 대화 {count}건",
@@ -50,6 +51,8 @@
     "broadcasts": "브로드캐스트",
     "automations": "자동화",
     "solar": "Solar Assistant",
+    "invoices": "인보이스",
+    "flows": "플로우",
     "settings": "설정",
     "openMenu": "메뉴 열기",
     "openAccountMenu": "계정 메뉴 열기",
@@ -58,6 +61,14 @@
     "menuProfile": "프로필",
     "menuSettings": "설정",
     "menuSignOut": "로그아웃"
+  },
+  "MobileTabBar": {
+    "label": "기본",
+    "inbox": "인박스",
+    "contacts": "연락처",
+    "pipelines": "딜",
+    "solar": "Solar",
+    "more": "더보기"
   },
   "ModeToggle": {
     "switchMode": "{mode} 모드로 전환"

@@ -228,3 +228,10 @@ html[data-theme="rose"] {
     @apply font-sans;
   }
 }
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}

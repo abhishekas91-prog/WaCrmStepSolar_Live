@@ -13,6 +13,12 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { ConversationList } from "@/components/inbox/conversation-list";
 import { MessageThread } from "@/components/inbox/message-thread";
 import { ContactSidebar } from "@/components/inbox/contact-sidebar";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { WifiOff } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -69,6 +75,7 @@ function InboxPageInner() {
    * below reconciles to the stored value right after mount instead.
    */
   const [contactPanelOpen, setContactPanelOpen] = useState(true);
+  const [mobileContactOpen, setMobileContactOpen] = useState(false);
   useEffect(() => {
     try {
       const stored = localStorage.getItem(CONTACT_PANEL_STORAGE_KEY);
@@ -79,6 +86,10 @@ function InboxPageInner() {
   }, []);
 
   const handleToggleContactPanel = useCallback(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      setMobileContactOpen(true);
+      return;
+    }
     setContactPanelOpen((prev) => {
       const next = !prev;
       try {
@@ -562,7 +573,14 @@ function InboxPageInner() {
   const hasActiveConv = !!activeConversation;
 
   return (
-    <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden sm:-m-6">
+    <div
+      className={cn(
+        "-m-4 flex flex-col overflow-hidden sm:-m-6",
+        hasActiveConv
+          ? "h-[calc(100dvh-3.5rem)] max-lg:-mb-20"
+          : "h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3.5rem)]",
+      )}
+    >
       {/* WhatsApp connection banner — in the flex column, not absolute,
           so it pushes the panels down instead of overlapping them. */}
       {whatsappConnected === false && (
@@ -636,6 +654,18 @@ function InboxPageInner() {
           </div>
         )}
       </div>
+
+      <Sheet open={mobileContactOpen} onOpenChange={setMobileContactOpen}>
+        <SheetContent side="right" className="w-full max-w-none p-0 sm:max-w-sm">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Contact</SheetTitle>
+          </SheetHeader>
+          <ContactSidebar
+            contact={activeContact}
+            className="h-full w-full border-l-0"
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

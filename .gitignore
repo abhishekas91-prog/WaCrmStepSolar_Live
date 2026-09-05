@@ -78,6 +78,16 @@ agenthub/agents/youtube/db
 
 memory/test_credentials.md
 
+# Android app build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/*.iml
+*.apk
+*.aab
+
 # Mobile development
 android-sdk/frontend/node_modules/@next/swc-linux-arm64-musl/next-swc.linux-arm64-musl.node
 frontend/node_modules/@next/swc-linux-arm64-gnu/next-swc.linux-arm64-gnu.node

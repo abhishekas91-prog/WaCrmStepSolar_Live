@@ -6,6 +6,7 @@ import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { ThemedToaster } from "@/components/themed-toaster";
+import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import {
   DEFAULT_MODE,
   DEFAULT_THEME,
@@ -26,6 +27,21 @@ export const metadata: Metadata = {
     template: "%s — StepSolar WA",
   },
   description: "Step Solar Whatsapp — CRM for the WhatsApp Business API.",
+  applicationName: "StepSolar WA",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "StepSolar WA",
+  },
+  icons: {
+    icon: [
+      { url: "/step-solar-logo.jpg", type: "image/jpeg" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/icon-192.png", sizes: "192x192" }],
+  },
   robots: {
     index: false,
     follow: false,
@@ -40,6 +56,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: "#020617",
   colorScheme: "dark light",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 // Inline boot script — runs before React hydrates so the user's
@@ -109,6 +130,7 @@ export default async function RootLayout({
           <ThemeProvider>
             {children}
             <ThemedToaster />
+            <RegisterServiceWorker />
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>
