@@ -906,41 +906,54 @@ export function InvoicesPageContent() {
     toast.success("Document Generated Successfully!");
   };
 
-  // Helper to load jspdf & html2canvas on demand
+  // Helper to load jspdf & html2canvas on demand (from node_modules with CDN fallback)
   const loadPdfLibraries = async () => {
     if (typeof window === "undefined") return null;
-    const win = window as unknown as {
-      jspdf?: { jsPDF: typeof import("jspdf").jsPDF };
-      html2canvas?: typeof import("html2canvas").default;
-    };
-    if (win.jspdf && win.html2canvas) {
-      return { jsPDF: win.jspdf.jsPDF, html2canvas: win.html2canvas };
-    }
 
     try {
-      if (!win.html2canvas) {
-        await new Promise((resolve, reject) => {
-          const s = document.createElement("script");
-          s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
-          s.onload = () => resolve(true);
-          s.onerror = reject;
-          document.head.appendChild(s);
-        });
+      const [html2canvasModule, jsPdfModule] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      return {
+        html2canvas: html2canvasModule.default || html2canvasModule,
+        jsPDF: jsPdfModule.jsPDF || jsPdfModule.default,
+      };
+    } catch (importErr) {
+      console.warn("[loadPdfLibraries] dynamic import failed, falling back to CDN:", importErr);
+      const win = window as unknown as {
+        jspdf?: { jsPDF: typeof import("jspdf").jsPDF };
+        html2canvas?: typeof import("html2canvas").default;
+      };
+      if (win.jspdf && win.html2canvas) {
+        return { jsPDF: win.jspdf.jsPDF, html2canvas: win.html2canvas };
       }
 
-      if (!win.jspdf) {
-        await new Promise((resolve, reject) => {
-          const s = document.createElement("script");
-          s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-          s.onload = () => resolve(true);
-          s.onerror = reject;
-          document.head.appendChild(s);
-        });
-      }
+      try {
+        if (!win.html2canvas) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement("script");
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+            s.onload = () => resolve(true);
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
 
-      return { jsPDF: win.jspdf!.jsPDF, html2canvas: win.html2canvas! };
-    } catch {
-      return null;
+        if (!win.jspdf) {
+          await new Promise((resolve, reject) => {
+            const s = document.createElement("script");
+            s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+            s.onload = () => resolve(true);
+            s.onerror = reject;
+            document.head.appendChild(s);
+          });
+        }
+
+        return { jsPDF: win.jspdf!.jsPDF, html2canvas: win.html2canvas! };
+      } catch {
+        return null;
+      }
     }
   };
 
@@ -948,7 +961,9 @@ export function InvoicesPageContent() {
   const generatePdfBlob = async () => {
     const libs = await loadPdfLibraries();
     const original = document.getElementById("docOutput");
-    if (!libs || !original) return null;
+    if (!libs || !original) {
+      throw new Error("PDF generator libraries (html2canvas/jsPDF) could not be loaded.");
+    }
 
     const clone = original.cloneNode(true) as HTMLElement;
     clone.style.width = "780px";
@@ -981,12 +996,29 @@ export function InvoicesPageContent() {
     clone.insertBefore(styleEl, clone.firstChild);
     document.body.appendChild(clone);
 
+    // Ensure all images in clone are loaded
+    const imgs = Array.from(clone.querySelectorAll("img"));
+    await Promise.all(
+      imgs.map(
+        (img) =>
+          new Promise((resolve) => {
+            if (img.complete) resolve(true);
+            else {
+              img.onload = () => resolve(true);
+              img.onerror = () => resolve(true);
+            }
+          })
+      )
+    );
+
     const canvas = await libs.html2canvas(clone, {
       scale: 2,
       useCORS: true,
+      allowTaint: true,
       backgroundColor: "#ffffff",
       width: 780,
       windowWidth: 780,
+      imageTimeout: 0,
     });
     document.body.removeChild(clone);
 
@@ -1066,8 +1098,13 @@ export function InvoicesPageContent() {
       } else {
         toast.error("PDF generation library not loaded.");
       }
-    } catch {
-      toast.error("Failed to generate PDF.");
+    } catch (err) {
+      console.error("[DownloadPDF] Error:", err);
+      toast.error(
+        `Failed to generate PDF: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  };
     }
   };
 
