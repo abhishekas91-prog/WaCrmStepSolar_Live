@@ -1,0 +1,20 @@
+{
+  "summary": "Frontend regression run after @supabase/supabase-js downgrade to pinned 2.109.0. All 6 requested scenarios PASSED (8/8 assertions). Preview URL reachable (login=200, signup=200, /api/_proxy/health returns {status:ok, upstream:http://127.0.0.1:3000}). Master admin (super@stepsolar.in) login redirects to /dashboard, sidebar shows 'Master Admin' + 'Step Solar CRM' + 'OWNER' badge. Public signup remains blocked: /signup shows data-testid=signup-disabled-title and NO email input. /login (no invite) does NOT expose data-testid=login-create-account-link. No console errors mentioning supabase-js / AuthClient / createClient during login flow. yarn.lock contains only @supabase/supabase-js@2.109.0 (single entry).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_3.json"],
+  "action_items": [],
+  "critical_code_review_comments": [],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only run; /api/_proxy/health probed and returns 200)", "frontend": "100% (8/8 assertions across 6 scenarios)"},
+  "test_credentials": "super@stepsolar.in / Step.Solar@123 (master admin, owner, Step Solar CRM)",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Supabase-js is pinned to exact 2.109.0 in dependencies + resolutions + overrides. yarn.lock verified single-version. Master admin auth round-trip works cleanly with no console errors. Previously-reported PresenceHeartbeat 'touch_presence failed' warning did NOT appear this run either (was intermittent/backlog). For any future auth work, use clean context per /signup and /login?invite tests because middleware bounces authenticated sessions to /dashboard.",
+  "rca of the issue": "N/A — no issues found. Downgrade fix verified working end-to-end on preview."
+}

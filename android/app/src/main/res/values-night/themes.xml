@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.StepSolarWA" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:statusBarColor">#1F2C34</item>
+        <item name="android:navigationBarColor">#0B141A</item>
+        <item name="android:windowBackground">#0B141A</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
+

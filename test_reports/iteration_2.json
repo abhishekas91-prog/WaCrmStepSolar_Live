@@ -1,0 +1,22 @@
+{
+  "summary": "Frontend-only verification of master-admin login + invite-only signup gating on Step Solar CRM. All 5 requested scenarios PASSED. Master admin (super@stepsolar.in) logs in and is redirected to /dashboard with correct profile (Master Admin, OWNER, Step Solar CRM). /signup (no invite) shows the 'Signup by invitation only' card with data-testid=signup-disabled-title and data-testid=signup-disabled-back-to-login; no signup form fields are rendered. /signup?invite=dummy-token-123 renders the full form (fullName + email + 2 password inputs + Create account button). /login (no invite) does NOT expose the 'Create account' link nor the 'Don\u2019t have an account?' text. /login?invite=dummy-token-123 correctly exposes data-testid=login-create-account-link. Note: initial run had 5 spurious failures because the browser was still authenticated from the login test; middleware then bounced /signup and /login?invite to /dashboard. Re-running the signup/login-invite assertions in a fresh (unauthenticated) context passed all of them, which confirms the intended behaviour (authenticated users are already redirected away from auth routes \u2014 this is a plus, not a bug).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Presence heartbeat", "issue": "Console error after login: '[PresenceHeartbeat] touch_presence failed: TypeError: Failed to fetch'. Non-blocking (dashboard still renders fine) but worth investigating \u2014 endpoint likely unreachable or CORS/mock issue.", "affected_selectors": []}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_2.json"],
+  "action_items": ["Investigate the PresenceHeartbeat 'touch_presence failed: TypeError: Failed to fetch' console error on the dashboard (minor, non-blocking)."],
+  "critical_code_review_comments": ["Guard for invite-only signup is implemented client-side only (page.tsx returns a blocked card when !inviteToken). A determined user could still POST to any signup API directly \u2014 verify server-side / Supabase policy also rejects self-signup without an invite. This wasn\u2019t tested (backend-out-of-scope) but should be confirmed by the main agent."],
+  "updated_files": ["/app/memory/test_credentials.md"],
+  "success_rate": {"backend": "N/A (not tested)", "frontend": "100% (5/5 scenarios, 13/13 assertions)"},
+  "test_credentials": "super@stepsolar.in / Step.Solar@123 (master admin, owner of 'Step Solar CRM')",
+  "seed_data_creation": "None. Master admin was pre-seeded by main agent via Supabase Admin API.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Master admin creds are in /app/memory/test_credentials.md. Public signup is disabled by design \u2014 do not attempt to create users via /signup. For multi-user scenarios use Settings \u2192 Team \u2192 Invite inside the app. When testing /signup or /login?invite=... always start from a clean browser context (page.context.clear_cookies()) because middleware redirects authenticated users to /dashboard, which will otherwise cause false failures.",
+  "rca of the issue": "N/A \u2014 no bugs. The initial 5 failures during the first Playwright run were self-inflicted (single browser context, cookies persisted post-login, middleware redirected subsequent /signup and /login?invite navigations to /dashboard). Confirmed by re-running the same assertions after clearing cookies \u2014 all passed."
+}

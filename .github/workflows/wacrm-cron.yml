@@ -1,0 +1,27 @@
+name: WaCRM automation cron
+
+# Vercel's Hobby plan only allows built-in cron jobs to run once a day,
+# which is far too slow for automation "wait" steps and flow timeouts.
+# This workflow pings the app's own cron routes on GitHub's free
+# scheduler instead — the routes themselves are plain authenticated
+# HTTP endpoints, so any external scheduler works.
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 minutes (UTC), GitHub's minimum interval
+  workflow_dispatch: {}       # allows manual "Run workflow" from the Actions tab
+
+jobs:
+  ping-cron-endpoints:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger automations cron
+        run: |
+          curl -sf -o /dev/null -w "automations/cron -> %{http_code}\n" \
+            -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
+            "https://whatsapp.stepsolar.in/api/automations/cron"
+
+      - name: Trigger flows cron
+        run: |
+          curl -sf -o /dev/null -w "flows/cron -> %{http_code}\n" \
+            -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
+            "https://whatsapp.stepsolar.in/api/flows/cron"

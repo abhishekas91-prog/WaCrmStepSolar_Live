@@ -1,0 +1,8 @@
+# backend Python requirements
+#   proxy service (server.py): fastapi, httpx, uvicorn
+#   invoice generation (send_invoice.py): pdfkit, num2words
+fastapi
+httpx
+uvicorn
+pdfkit
+num2words

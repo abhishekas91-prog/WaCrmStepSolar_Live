@@ -1,0 +1,22 @@
+{
+  "summary": "Backend-only integration test of Meta WhatsApp webhook fix (rotated app credentials, app_id 2167080984024660). Verified: (1) GET challenge with correct verify_token returns 200 + echoed challenge; (2) GET challenge with wrong token rejected; (3) POST with valid HMAC-SHA256 signature accepted → 200 {status:received}, row persisted in Supabase messages table (message_id=wamid.qatest_verify_9911, sender_type=customer, content_text='qa probe payload'); (4) POST with missing signature → 401 Invalid signature; (5) POST with bogus signature → 401 Invalid signature; (6) Meta Graph subscription active — callback_url matches https://crm-solar-hub.preview.emergentagent.com/api/whatsapp/webhook, fields include messages + message_template_status_update, active=true; (7) Probe row was cleaned up after verification; (8) Regression: master admin (super@stepsolar.in) Supabase login returns 200 with access_token.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_whatsapp_webhook.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Supabase inserts show minor read-replica lag (~<1.5s) after webhook POST — tests use retry loop; not a bug, just noted for future test authors.",
+    "Webhook honors message-provided timestamp verbatim for created_at (probe row landed at 2023-11-14 because timestamp=1700000000). Consider clamping created_at to server time or storing message timestamp in a separate column so ordering in the inbox isn't skewed by clients sending arbitrary timestamps."
+  ],
+  "updated_files": ["/app/backend/tests/test_whatsapp_webhook.py"],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "super@stepsolar.in / Step.Solar@123 (Supabase auth 200 OK).",
+  "seed_data_creation": "Inserted probe message wamid.qatest_verify_9911 into Supabase messages table via webhook POST, then DELETEd via service role key. DB clean at exit.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All webhook tests in /app/backend/tests/test_whatsapp_webhook.py — 7 tests, all currently green. HMAC secret is af28a9accce874aa70ac8b645c33f12e (app_id 2167080984024660, name 'StepSolar'). Verify token: verify-meTanu. If probe row cleanup ever fails, delete manually: DELETE messages?message_id=eq.wamid.qatest_verify_9911 with SERVICE_ROLE key. Do not reuse real customer wa_id 919304780542 in probes.",
+  "rca of the issue": "Original bug: Meta webhook was configured against Meta App id 2273714456698993 which had been DELETED on the Meta side, so Meta had no path to deliver customer messages to the CRM (and any HMAC signature we did receive would have been signed by the wrong app_secret). Fix: WABA 2094685578111813 is registered under Meta App 'StepSolar' (2167080984024660); rotated META_APP_ID + META_APP_SECRET in /app/frontend/.env.local to the correct app, re-registered the callback via POST /v20.0/{app_id}/subscriptions using an app access token, restarted supervisor. Verified inbound delivery + HMAC verification end-to-end via signed probe → 200 + Supabase row present."
+}

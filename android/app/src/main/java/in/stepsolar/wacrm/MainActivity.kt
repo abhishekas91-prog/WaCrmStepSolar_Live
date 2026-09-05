@@ -188,6 +188,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         swipe.setColorSchemeColors(0xFF16A34A.toInt())
+        swipe.setColorSchemeColors(0xFF008069.toInt(), 0xFF25D366.toInt())
         swipe.setOnRefreshListener { webView.reload() }
         retry.setOnClickListener { loadCrm() }
 
