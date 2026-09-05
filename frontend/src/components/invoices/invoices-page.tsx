@@ -1644,7 +1644,7 @@ Thank you for choosing Step Solar!`;
           {/* Company & Customer Details */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Company & Customer Details</CardTitle>
+              <CardTitle className="text-base">Company & Customer Details.</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
