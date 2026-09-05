@@ -632,13 +632,10 @@ function triggerSystemNotification(title: string, body: string) {
   return (
     <div
       className={cn(
-        "-m-4 flex flex-col overflow-hidden sm:-m-6",
-        "flex flex-col overflow-hidden lg:-m-6",
+        "-m-4 flex flex-col overflow-hidden sm:-m-6 lg:m-0",
         hasActiveConv
-          ? "h-[calc(100dvh-3.5rem)] max-lg:-mb-20"
-          : "h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3.5rem)]",
           ? "h-dvh lg:h-[calc(100dvh-3.5rem)]"
-          : "h-[calc(100dvh-7.5rem)] lg:h-[calc(100dvh-3.5rem)]",
+          : "h-[calc(100dvh-7rem)] lg:h-[calc(100dvh-3.5rem)]",
       )}
     >
       {/* WhatsApp connection banner — in the flex column, not absolute,
