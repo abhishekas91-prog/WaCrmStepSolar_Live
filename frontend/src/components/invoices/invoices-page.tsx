@@ -410,17 +410,17 @@ function renderQuotationHtml(record: SavedRecord): string {
 
     <table><tr><td class="noB bold center sectionbar">Commercial Summary &amp; Tax Breakdown</td></tr></table>
     <table>
-      <tr><td class="label" style="width:70%;">Goods Taxable Value</td><td class="right">${inr(goodsTaxable)}</td></tr>
-      <tr><td class="label">${gstTag} @ 5%</td><td class="right">${inr(goodsGst)}</td></tr>
-      <tr><td class="label">Installation/Services Taxable Value</td><td class="right">${inr(installTaxable)}</td></tr>
-      <tr><td class="label">${gstTag} @ 18%</td><td class="right">${inr(installGst)}</td></tr>
-      <tr class="bold"><td class="label">Taxable Amount (Excl. GST)</td><td class="right">${inr(taxableTotal)}</td></tr>
-      <tr class="bold"><td class="label">Total GST</td><td class="right">${inr(gstTotal)}</td></tr>
-      <tr class="bold"><td class="label">Total Gross Payable Amount (Incl. of GST)</td><td class="right">${inr(grand)}</td></tr>
-      <tr><td class="label">Less: Central Government Subsidy Benefit</td><td class="right">${inr(cs)}</td></tr>
-      <tr><td class="label">Less: UP-State Government Subsidy Benefit</td><td class="right">${inr(ss)}</td></tr>
-      <tr class="bold"><td class="label">Total Estimated Subsidy Benefit</td><td class="right">${inr(totalSubsidy)}</td></tr>
-      <tr class="bold"><td class="label">Net Payable Amount (Est.)</td><td class="right">${inr(netPayable)}</td></tr>
+      <tr><td style="font-weight:700; white-space:nowrap; width:75%;">Goods Taxable Value</td><td class="right">${inr(goodsTaxable)}</td></tr>
+      <tr><td style="font-weight:700; white-space:nowrap;">${gstTag} @ 5%</td><td class="right">${inr(goodsGst)}</td></tr>
+      <tr><td style="font-weight:700; white-space:nowrap;">Installation/Services Taxable Value</td><td class="right">${inr(installTaxable)}</td></tr>
+      <tr><td style="font-weight:700; white-space:nowrap;">${gstTag} @ 18%</td><td class="right">${inr(installGst)}</td></tr>
+      <tr class="bold"><td style="font-weight:700; white-space:nowrap;">Taxable Amount (Excl. GST)</td><td class="right">${inr(taxableTotal)}</td></tr>
+      <tr class="bold"><td style="font-weight:700; white-space:nowrap;">Total GST</td><td class="right">${inr(gstTotal)}</td></tr>
+      <tr class="bold"><td style="font-weight:700; white-space:nowrap;">Total Gross Payable Amount (Incl. of GST)</td><td class="right">${inr(grand)}</td></tr>
+      <tr><td style="font-weight:700; white-space:nowrap;">Less: Central Government Subsidy Benefit</td><td class="right">${inr(cs)}</td></tr>
+      <tr><td style="font-weight:700; white-space:nowrap;">Less: UP-State Government Subsidy Benefit</td><td class="right">${inr(ss)}</td></tr>
+      <tr class="bold"><td style="font-weight:700; white-space:nowrap;">Total Estimated Subsidy Benefit</td><td class="right">${inr(totalSubsidy)}</td></tr>
+      <tr class="bold"><td style="font-weight:700; white-space:nowrap;">Net Payable Amount (Est.)</td><td class="right">${inr(netPayable)}</td></tr>
     </table>
 
     <table>
@@ -1103,8 +1103,6 @@ export function InvoicesPageContent() {
       toast.error(
         `Failed to generate PDF: ${err instanceof Error ? err.message : String(err)}`
       );
-    }
-  };
     }
   };
 
