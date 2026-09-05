@@ -608,21 +608,18 @@ export function MessageComposer({
           t={t}
         />
       ) : recording ? (
-        // Recording bar — replaces the composer while the mic is live.
         <div className="flex items-center gap-3 rounded-xl border border-border bg-muted px-4 py-2.5">
           <span className="flex h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
           <span className="flex-1 text-sm text-foreground">
-        // WhatsApp recording bar — replaces the composer while recording audio.
-        <div className="flex items-center gap-3 rounded-full border border-border/80 bg-card dark:bg-[#1f2c34] px-4 py-2 shadow-sm">
-          <span className="flex h-3 w-3 shrink-0 animate-pulse rounded-full bg-red-500" />
-          <span className="flex-1 font-mono text-sm text-foreground">
-            {t("recording", { current: formatDuration(recordSeconds), max: formatDuration(MAX_RECORDING_SECONDS) })}
+            {t("recording", {
+              current: formatDuration(recordSeconds),
+              max: formatDuration(MAX_RECORDING_SECONDS),
+            })}
           </span>
           <button
             type="button"
             onClick={cancelRecording}
             className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-card hover:text-foreground"
-            className="rounded-full px-3 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             {t("cancel")}
           </button>
@@ -630,7 +627,6 @@ export function MessageComposer({
             size="sm"
             onClick={stopRecording}
             className="h-9 w-9 shrink-0 bg-primary p-0 hover:bg-primary/90"
-            className="h-9 w-9 shrink-0 rounded-full bg-red-500 hover:bg-red-600 text-white p-0 shadow-sm"
             title={t("stopAndAttach")}
           >
             <Square className="h-4 w-4" />
@@ -638,7 +634,6 @@ export function MessageComposer({
         </div>
       ) : (
         <div className="flex items-end gap-2">
-          {/* Attach menu — photo / video / document / voice. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               disabled={inputsDisabled || busy}
@@ -650,17 +645,6 @@ export function MessageComposer({
                     : t("attachMedia")
               }
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-          {/* Main WhatsApp Input Capsule */}
-          <div className="flex flex-1 min-w-0 items-end rounded-3xl border border-border/70 bg-card dark:bg-[#1f2c34] px-2 py-1 gap-1 shadow-sm transition-all focus-within:border-[#25D366]/60">
-            {/* Emoji / Smile Icon */}
-            <button
-              type="button"
-              onClick={() => {
-                setText((prev) => prev + " 😊");
-                textareaRef.current?.focus();
-              }}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-colors"
-              title="Emoji"
             >
               {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -687,31 +671,16 @@ export function MessageComposer({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-              <Smile className="h-5 w-5" />
-            </button>
 
-          {/* + menu — interactive messages + quick replies. Gated on the
-              24h window like free-form text (interactive requires it). */}
           <DropdownMenu>
             <DropdownMenuTrigger
               disabled={inputsDisabled}
               title={
-            {/* Auto-growing Textarea */}
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              placeholder={
                 readOnly
                   ? t("readOnlyTitle")
                   : inputsDisabled
                     ? undefined
                     : t("moreActions")
-                  ? t("readOnlyPlaceholder")
-                  : sessionExpired
-                    ? t("sessionExpiredPlaceholder")
-                    : t("typeMessagePlaceholder")
               }
               className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md p-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -728,14 +697,6 @@ export function MessageComposer({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-              disabled={sessionExpired || readOnly}
-              rows={1}
-              title={readOnly ? t("readOnlyTitle") : undefined}
-              className={cn(
-                "flex-1 max-h-32 min-h-[2.25rem] resize-none bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground outline-none ring-0 border-none shadow-none leading-relaxed",
-                (sessionExpired || readOnly) && "cursor-not-allowed opacity-50"
-              )}
-            />
 
           <GatedButton
             variant="ghost"
@@ -748,29 +709,6 @@ export function MessageComposer({
           >
             <LayoutTemplate className="h-4 w-4" />
           </GatedButton>
-            {/* Paperclip: WhatsApp Attachment Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                disabled={inputsDisabled || busy}
-                title={readOnly ? t("readOnlyTitle") : t("attachMedia")}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
-              >
-                {busy ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-[#008069]" />
-                ) : (
-                  <Paperclip className="h-5 w-5 -rotate-45" />
-                )}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 p-2 rounded-2xl shadow-xl border-border bg-popover">
-                <DropdownMenuItem
-                  onClick={() => documentInputRef.current?.click()}
-                  className="flex items-center gap-3 py-2 cursor-pointer"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-500">
-                    <FileText className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium text-sm">{t("document")}</span>
-                </DropdownMenuItem>
 
           <GatedButton
             variant="ghost"
@@ -788,15 +726,6 @@ export function MessageComposer({
               <Sparkles className="h-4 w-4" />
             )}
           </GatedButton>
-                <DropdownMenuItem
-                  onClick={() => imageInputRef.current?.click()}
-                  className="flex items-center gap-3 py-2 cursor-pointer"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-500/15 text-purple-500">
-                    <ImageIcon className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium text-sm">{t("photo")}</span>
-                </DropdownMenuItem>
 
           <textarea
             ref={textareaRef}
@@ -812,79 +741,12 @@ export function MessageComposer({
             }
             disabled={sessionExpired || readOnly}
             rows={1}
-            // Textarea keeps its own inline title — the GatedButton
-            // wrapping pattern doesn't apply to non-button inputs.
-            // The placeholder text also surfaces the read-only state.
             title={readOnly ? t("readOnlyTitle") : undefined}
             className={cn(
               "flex-1 resize-none rounded-xl border border-border bg-muted px-4 py-2.5 text-sm text-foreground placeholder-muted-foreground outline-none transition-colors focus:border-primary/50",
               (sessionExpired || readOnly) && "cursor-not-allowed opacity-50"
-                <DropdownMenuItem
-                  onClick={() => videoInputRef.current?.click()}
-                  className="flex items-center gap-3 py-2 cursor-pointer"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-pink-500/15 text-pink-500">
-                    <Video className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium text-sm">{t("video")}</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => setQuickReplyOpen(true)}
-                  className="flex items-center gap-3 py-2 cursor-pointer"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
-                    <Zap className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium text-sm">{t("quickReplies")}</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={onOpenTemplates}
-                  className="flex items-center gap-3 py-2 cursor-pointer"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#008069]/15 text-[#008069] dark:text-[#25D366]">
-                    <LayoutTemplate className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium text-sm">{t("sendTemplate")}</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={handleDraft}
-                  disabled={drafting}
-                  className="flex items-center gap-3 py-2 cursor-pointer"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/15 text-blue-500">
-                    <Sparkles className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium text-sm">{t("draftWithAI")}</span>
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => openInteractiveBuilder()}
-                  className="flex items-center gap-3 py-2 cursor-pointer"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
-                    <MessageSquareDashed className="h-4 w-4" />
-                  </div>
-                  <span className="font-medium text-sm">{t("interactiveMessage")}</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Quick Camera Capture Button (visible when not typing) */}
-            {!text.trim() && (
-              <button
-                type="button"
-                onClick={() => imageInputRef.current?.click()}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-colors"
-                title="Camera"
-              >
-                <Camera className="h-5 w-5" />
-              </button>
             )}
           />
-          </div>
 
           <GatedButton
             size="sm"
@@ -896,30 +758,6 @@ export function MessageComposer({
           >
             <Send className="h-4 w-4" />
           </GatedButton>
-          {/* Right WhatsApp Action Circle: Mic when empty, Send when text typed */}
-          {text.trim() ? (
-            <GatedButton
-              size="sm"
-              canAct={!readOnly}
-              gateReason="send messages"
-              disabled={sessionExpired || sending}
-              onClick={handleSend}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#008069] dark:bg-[#00a884] hover:bg-[#00705c] dark:hover:bg-[#009272] text-white p-0 shadow-md active:scale-95 transition-transform"
-              title={t("send")}
-            >
-              <Send className="h-5 w-5" />
-            </GatedButton>
-          ) : (
-            <button
-              type="button"
-              disabled={inputsDisabled || busy}
-              onClick={() => void startRecording()}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#008069] dark:bg-[#00a884] hover:bg-[#00705c] dark:hover:bg-[#009272] text-white p-0 shadow-md active:scale-95 transition-transform disabled:opacity-50"
-              title={t("voiceNote")}
-            >
-              <Mic className="h-5 w-5" />
-            </button>
-          )}
         </div>
       )}
 
