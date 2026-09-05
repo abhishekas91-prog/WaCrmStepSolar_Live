@@ -46,10 +46,12 @@ export async function proxy(request: NextRequest) {
       url.pathname = `/join/${encodeURIComponent(inviteToken)}`
       url.search = ''
     } else {
-      url.pathname = '/dashboard'
+      url.pathname = '/inbox'
       url.search = ''
     }
-    return NextResponse.redirect(url)
+    const res = NextResponse.redirect(url)
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    return res
   }
 
   // Protected pages - redirect to login if not authenticated
@@ -72,7 +74,9 @@ export async function proxy(request: NextRequest) {
   ) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    return NextResponse.redirect(url)
+    const res = NextResponse.redirect(url)
+    res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    return res
   }
 
   // API routes that need auth (not webhooks)

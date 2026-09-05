@@ -200,10 +200,11 @@ async function writeSessionCookie(session: AuthSession): Promise<void> {
     JSON.stringify({ access_token: session.access_token }),
     "utf8",
   ).toString("base64url");
+  const isProd = process.env.NODE_ENV === "production";
   cookieStore.set(AUTH_COOKIE, value, {
     httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: isProd ? "none" : "lax",
+    secure: isProd,
     path: "/",
     maxAge: SESSION_DURATION_SECONDS,
   });
@@ -211,7 +212,14 @@ async function writeSessionCookie(session: AuthSession): Promise<void> {
 
 async function clearSessionCookie(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(AUTH_COOKIE);
+  const isProd = process.env.NODE_ENV === "production";
+  cookieStore.set(AUTH_COOKIE, "", {
+    httpOnly: true,
+    sameSite: isProd ? "none" : "lax",
+    secure: isProd,
+    path: "/",
+    maxAge: 0,
+  });
 }
 
 // ============================================================

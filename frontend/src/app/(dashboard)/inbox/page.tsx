@@ -83,6 +83,11 @@ function InboxPageInner() {
     } catch {
       // localStorage can throw in private-browsing / sandboxed contexts.
     }
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        void Notification.requestPermission();
+      }
+    }
   }, []);
 
   const handleToggleContactPanel = useCallback(() => {
@@ -223,12 +228,63 @@ function InboxPageInner() {
     checkConnection();
   }, []);
 
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch {
+    // ignore
+  }
+}
+
+function triggerSystemNotification(title: string, body: string) {
+  playNotificationSound();
+  toast.info(`${title}: ${body}`);
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission === "granted") {
+    try {
+      new Notification(title, {
+        body,
+        icon: "/step-solar-logo.jpg",
+      });
+    } catch {}
+  } else if (Notification.permission !== "denied") {
+    Notification.requestPermission().then((permission) => {
+      if (permission === "granted") {
+        try {
+          new Notification(title, {
+            body,
+            icon: "/step-solar-logo.jpg",
+          });
+        } catch {}
+      }
+    });
+  }
+}
+
   // Handle realtime message events
   const handleMessageEvent = useCallback(
     (event: { eventType: string; new: Message; old: Partial<Message> }) => {
       const newMsg = event.new;
 
       if (event.eventType === "INSERT") {
+        if (newMsg.direction === "inbound") {
+          triggerSystemNotification(
+            "Step Solar - Naya Message",
+            newMsg.content_text || "Aapko ek naya WhatsApp message mila hai"
+          );
+        }
+
         // Add to messages if it belongs to active conversation
         if (
           activeConversation &&

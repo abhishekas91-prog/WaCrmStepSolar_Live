@@ -79,7 +79,9 @@ function LoginPageInner() {
     const destination = inviteToken
       ? `/join/${encodeURIComponent(inviteToken)}`
       : "/dashboard";
-    window.location.href = destination;
+    setTimeout(() => {
+      window.location.href = destination;
+    }, 150);
   };
 
   return (

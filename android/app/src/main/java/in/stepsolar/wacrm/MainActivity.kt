@@ -73,19 +73,19 @@ class MainActivity : AppCompatActivity() {
         offline = findViewById(R.id.offline)
         val retry = findViewById<Button>(R.id.retry)
 
-        CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
 
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            databaseEnabled = true
+            javaScriptCanOpenWindowsAutomatically = true
             mediaPlaybackRequiresUserGesture = false
             allowFileAccess = true
             allowContentAccess = true
-            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-            cacheMode = WebSettings.LOAD_DEFAULT
-            userAgentString = "$userAgentString StepSolarWA/1.0"
+            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            cacheMode = WebSettings.LOAD_NO_CACHE
             setSupportZoom(false)
             builtInZoomControls = false
             displayZoomControls = false
@@ -114,6 +114,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                CookieManager.getInstance().flush()
+            }
+
             override fun shouldOverrideUrlLoading(
                 view: WebView,
                 request: WebResourceRequest,
@@ -132,6 +137,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
+                CookieManager.getInstance().flush()
                 swipe.isRefreshing = false
                 offline.visibility = LinearLayout.GONE
                 webView.visibility = WebView.VISIBLE
@@ -143,6 +149,10 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError,
             ) {
                 if (request.isForMainFrame) {
+                    if (error.errorCode == WebViewClient.ERROR_REDIRECT_LOOP) {
+                        view.clearCache(true)
+                        CookieManager.getInstance().flush()
+                    }
                     swipe.isRefreshing = false
                     webView.visibility = WebView.GONE
                     offline.visibility = LinearLayout.VISIBLE
