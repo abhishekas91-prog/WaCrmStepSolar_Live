@@ -14,14 +14,10 @@ import {
 import { resolveConversationByPhone } from '@/lib/whatsapp/resolve-conversation'
 
 // The dashboard's outbound-send endpoint. It owns auth, per-user rate
-// limiting, and the two ways the UI targets a thread — an existing
-// `conversation_id` (inbox) or a `contact_id` (Contact detail →
-// find-or-create the conversation). The actual Meta plumbing (validate
-// → send → persist → pause flows) lives in the shared
-// `sendMessageToConversation` core, which the public `/api/v1/messages`
-// endpoint reuses. This route is a thin adapter: resolve the
-// conversation, delegate, then map `SendMessageError` back onto the
-// dashboard's internal `{ error }` shape.
+// limiting, and the three ways the UI targets a thread:
+// 1. `conversation_id` (inbox)
+// 2. `contact_id` (Contact detail -> find-or-create)
+// 3. `phone` / `phone_number` / `to` (Invoice / direct send -> find-or-create)
 export async function POST(request: Request) {
   try {
     const { supabase, accountId, userId } = await requireRole('agent')
@@ -132,23 +128,6 @@ export async function POST(request: Request) {
       )
       conversationId = resolved.conversationId
     }
-        )
-      }
-
-      const resolved = await findOrCreateConversation(
-        supabase,
-        accountId,
-        userId,
-        contact_id
-      )
-      if (!resolved) {
-        return NextResponse.json(
-          { error: 'Failed to open a conversation for this contact' },
-          { status: 500 }
-        )
-      }
-      conversationId = resolved
-    }
 
     if (!conversationId) {
       return NextResponse.json(
@@ -157,10 +136,6 @@ export async function POST(request: Request) {
       )
     }
 
-    // Delegate to the shared send core (validates, sends to Meta with
-    // phone-variant retry, persists, pauses active flow runs). Its
-    // `SendMessageError` carries a machine code + HTTP status; the
-    // dashboard maps it to the internal `{ error }` shape.
     try {
       const result = await sendMessageToConversation(supabase, accountId, {
         conversationId,
@@ -191,8 +166,6 @@ export async function POST(request: Request) {
       throw err
     }
   } catch (error) {
-    // requireRole throws Unauthorized/Forbidden; toErrorResponse maps
-    // those to 401/403 and collapses anything else to a generic 500.
     console.error('Error in WhatsApp send POST:', error)
     return toErrorResponse(error)
   }
@@ -200,13 +173,6 @@ export async function POST(request: Request) {
 
 type SendSupabase = Awaited<ReturnType<typeof createClient>>
 
-/**
- * Return the contact's conversation id in this account, creating one if
- * it doesn't exist yet. Mirrors the webhook's find-or-create so an
- * inbound-then-outbound (or outbound-first) sequence converges on a single
- * thread per contact. Runs under the caller's RLS — the conversations_insert
- * policy requires account agent membership, which the caller already is.
- */
 async function findOrCreateConversation(
   supabase: SendSupabase,
   accountId: string,
