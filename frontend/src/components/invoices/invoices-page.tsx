@@ -973,27 +973,6 @@ export function InvoicesPageContent() {
     clone.style.top = "0";
     clone.style.background = "#ffffff";
 
-    const styleEl = document.createElement("style");
-    styleEl.innerHTML = `
-      .doc2 { border: 2px solid #000 !important; font-family: Calibri, Arial, sans-serif !important; color: #000 !important; font-size: 12px !important; background: #ffffff !important; }
-      .doc2 table { width: 100% !important; border-collapse: collapse !important; }
-      .doc2 td { border: 1px solid #000 !important; padding: 5px 8px !important; vertical-align: middle !important; font-size: 12px !important; }
-      .doc2 .noB { border: none !important; }
-      .doc2 .center { text-align: center !important; }
-      .doc2 .right { text-align: right !important; }
-      .doc2 .bold { font-weight: 700 !important; }
-      .doc2 .big { font-size: 21px !important; font-weight: 800 !important; letter-spacing: 0.01em !important; }
-      .doc2 .midtitle { font-size: 15px !important; font-weight: 800 !important; letter-spacing: 0.04em !important; }
-      .doc2 .small { font-size: 10.5px !important; }
-      .doc2 img.logo { width: 82px !important; display: block !important; margin: 0 auto !important; }
-      .doc2 .sectionbar { font-size: 11.5px !important; font-weight: 700 !important; padding: 5px 8px !important; background: #ffffff !important; }
-      .doc2 .italic { font-style: italic !important; }
-      .doc2 .label { font-weight: 700 !important; width: 150px !important; }
-      .doc2 .prose { font-size: 11.5px !important; line-height: 1.55 !important; padding: 8px 10px !important; }
-      .doc2 .prose ul { margin: 6px 0 !important; padding-left: 20px !important; }
-      .doc2 .prose li { margin-bottom: 4px !important; }
-    `;
-    clone.insertBefore(styleEl, clone.firstChild);
     document.body.appendChild(clone);
 
     // Ensure all images in clone are loaded
@@ -1012,13 +991,14 @@ export function InvoicesPageContent() {
     );
 
     const canvas = await libs.html2canvas(clone, {
-      scale: 1.5,
+      scale: 3,
       useCORS: true,
       allowTaint: true,
       backgroundColor: "#ffffff",
       width: 780,
       windowWidth: 780,
       imageTimeout: 0,
+      logging: false,
       onclone: (clonedDoc) => {
         // Remove all Tailwind v4 stylesheets containing modern lab()/oklch() color functions
         const styles = Array.from(
@@ -1048,9 +1028,8 @@ export function InvoicesPageContent() {
         docStyle.innerHTML = `
           * { box-sizing: border-box !important; }
           body, html { background-color: #ffffff !important; color: #000000 !important; font-family: Calibri, Arial, sans-serif !important; }
-          .doc2 { border: 1px solid #000000 !important; color: #000000 !important; font-size: 12px !important; background: #ffffff !important; width: 780px !important; }
-          .doc2 table { width: 100% !important; border-collapse: collapse !important; border-spacing: 0 !important; margin-top: -1px !important; }
-          .doc2 table:first-child { margin-top: 0 !important; }
+          .doc2 { border: 1px solid #000000 !important; color: #000000 !important; font-size: 12px !important; background: #ffffff !important; width: 780px !important; padding: 0 !important; margin: 0 !important; }
+          .doc2 table { width: 100% !important; border-collapse: collapse !important; border-spacing: 0 !important; margin: 0 !important; }
           .doc2 td { border: 1px solid #000000 !important; padding: 5px 8px !important; vertical-align: middle !important; font-size: 12px !important; background-color: #ffffff !important; color: #000000 !important; }
           .doc2 .noB { border: none !important; }
           .doc2 .center { text-align: center !important; }
@@ -1069,12 +1048,103 @@ export function InvoicesPageContent() {
           tr[style*="background:#eef3f0"], td[style*="background:#eef3f0"] { background-color: #eef3f0 !important; }
         `;
         clonedDoc.head.appendChild(docStyle);
+
+        const docRoot = (clonedDoc.getElementById("docOutput") ||
+          clonedDoc.querySelector(".doc2")) as HTMLElement | null;
+        if (docRoot) {
+          const isBorderless = (cell: Element) =>
+            cell.classList.contains("noB") ||
+            (cell.getAttribute("style") || "")
+              .toLowerCase()
+              .includes("border:none");
+          const rowHasBorder = (row: HTMLTableRowElement | undefined) =>
+            !!row &&
+            Array.from(row.cells).some((c) => !isBorderless(c));
+          const lastTableRow = (t: HTMLTableElement) =>
+            Array.from(t.rows)[t.rows.length - 1];
+          const drawsBottomLine = (t: HTMLTableElement) =>
+            t.rows.length > 0 && rowHasBorder(lastTableRow(t));
+
+          const stripBorder = (cell: HTMLElement, side: string) => {
+            cell.style.setProperty(`border-${side}`, "0 none", "important");
+          };
+
+          const markColumnEdges = (t: HTMLTableElement) => {
+            const span: number[] = [];
+            const placements: {
+              cell: HTMLTableCellElement;
+              start: number;
+              end: number;
+            }[] = [];
+            Array.from(t.rows).forEach((r) => {
+              const occ = span.slice();
+              let col = 0;
+              const rowPlan: typeof placements = [];
+              Array.from(r.cells).forEach((c) => {
+                while (occ[col] > 0) col++;
+                const cs = c.colSpan || 1;
+                rowPlan.push({ cell: c, start: col, end: col + cs });
+                col += cs;
+              });
+              for (let k = 0; k < span.length; k++) if (span[k] > 0) span[k]--;
+              rowPlan.forEach((p) => {
+                const rs = p.cell.rowSpan || 1;
+                if (rs > 1) {
+                  for (let k = p.start; k < p.end; k++)
+                    span[k] = (span[k] || 0) + (rs - 1);
+                }
+              });
+              placements.push(...rowPlan);
+            });
+            let maxCols = 0;
+            placements.forEach((p) => (maxCols = Math.max(maxCols, p.end)));
+            placements.forEach((p) => {
+              if (p.start === 0) stripBorder(p.cell, "left");
+              if (p.end === maxCols) stripBorder(p.cell, "right");
+            });
+          };
+
+          const tables = Array.from(docRoot.querySelectorAll("table")) as HTMLTableElement[];
+
+          tables.forEach((t, i) => {
+            if (i > 0 && drawsBottomLine(tables[i - 1])) {
+              const rows = Array.from(t.rows);
+              if (rows.length)
+                Array.from(rows[0].cells).forEach((c) => stripBorder(c, "top"));
+            }
+          });
+
+          tables.forEach((t) => markColumnEdges(t));
+
+          if (tables.length) {
+            const firstRows = Array.from(tables[0].rows);
+            if (firstRows.length)
+              Array.from(firstRows[0].cells).forEach((c) => stripBorder(c, "top"));
+            let bottomEl: Element = docRoot;
+            while (bottomEl.children.length)
+              bottomEl = bottomEl.children[bottomEl.children.length - 1];
+            const bottomTable = bottomEl.closest("table") as HTMLTableElement | null;
+            if (bottomTable) {
+              const btRows = Array.from(bottomTable.rows);
+              if (btRows.length)
+                Array.from(btRows[btRows.length - 1].cells).forEach((c) =>
+                  stripBorder(c, "bottom")
+                );
+            } else {
+              const inlineStyle = (bottomEl.getAttribute("style") || "").toLowerCase();
+              if (inlineStyle.includes("border")) {
+                stripBorder(bottomEl as HTMLElement, "left");
+                stripBorder(bottomEl as HTMLElement, "right");
+                stripBorder(bottomEl as HTMLElement, "bottom");
+              }
+            }
+          }
+        }
       },
     });
     document.body.removeChild(clone);
 
-    // Optimized JPEG compression to keep PDF size strictly under 2MB - 3MB for fast WhatsApp sending
-    const imgData = canvas.toDataURL("image/jpeg", 0.85);
+    const imgData = canvas.toDataURL("image/png");
     const pdf = new libs.jsPDF("p", "mm", "a4");
     const pageWidth = 210,
       pageHeight = 297;
@@ -1086,13 +1156,13 @@ export function InvoicesPageContent() {
     let heightLeft = imgHeight;
     let position = marginMM;
 
-    pdf.addImage(imgData, "JPEG", marginMM, position, imgWidth, imgHeight, undefined, "FAST");
+    pdf.addImage(imgData, "PNG", marginMM, position, imgWidth, imgHeight);
     heightLeft -= usableHeight;
 
     while (heightLeft > 0) {
       position = marginMM - (imgHeight - heightLeft);
       pdf.addPage();
-      pdf.addImage(imgData, "JPEG", marginMM, position, imgWidth, imgHeight, undefined, "FAST");
+      pdf.addImage(imgData, "PNG", marginMM, position, imgWidth, imgHeight);
       heightLeft -= usableHeight;
     }
 
