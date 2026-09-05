@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">StepSolar WA</string>
-    <string name="offline_title">No internet</string>
-    <string name="offline_body">Check your connection, then tap Retry to open the CRM.</string>
-    <string name="retry">Retry</string>
-</resources>
