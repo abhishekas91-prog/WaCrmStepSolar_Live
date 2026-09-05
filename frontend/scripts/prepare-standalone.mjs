@@ -16,11 +16,11 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const standaloneDir = join(root, '.next', 'standalone')
 
-if (!existsSync(standaloneDir)) {
-  console.error(
-    '[prepare-standalone] .next/standalone not found — did `next build` run with output: "standalone" in next.config.ts?'
+if (process.env.VERCEL === '1' || process.env.NOW_BUILDER || !existsSync(standaloneDir)) {
+  console.log(
+    '[prepare-standalone] .next/standalone not found or running in serverless environment — skipping standalone copy.'
   )
-  process.exit(1)
+  process.exit(0)
 }
 
 const copies = [
