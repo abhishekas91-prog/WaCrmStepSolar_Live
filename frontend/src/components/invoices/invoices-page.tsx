@@ -1019,6 +1019,56 @@ export function InvoicesPageContent() {
       width: 780,
       windowWidth: 780,
       imageTimeout: 0,
+      onclone: (clonedDoc) => {
+        // Remove all Tailwind v4 stylesheets containing modern lab()/oklch() color functions
+        const styles = Array.from(
+          clonedDoc.querySelectorAll("style, link[rel='stylesheet']")
+        );
+        styles.forEach((s) => s.remove());
+
+        // Clean inline styles and color functions
+        const allNodes = Array.from(clonedDoc.querySelectorAll("*"));
+        allNodes.forEach((node) => {
+          const htmlNode = node as HTMLElement;
+          if (htmlNode.style) {
+            if (htmlNode.style.color && htmlNode.style.color.includes("lab")) {
+              htmlNode.style.color = "#000000";
+            }
+            if (
+              htmlNode.style.backgroundColor &&
+              htmlNode.style.backgroundColor.includes("lab")
+            ) {
+              htmlNode.style.backgroundColor = "#ffffff";
+            }
+          }
+        });
+
+        // Inject 100% clean standard CSS for Invoice (3).html replica
+        const docStyle = clonedDoc.createElement("style");
+        docStyle.innerHTML = `
+          * { box-sizing: border-box !important; }
+          body, html { background-color: #ffffff !important; color: #000000 !important; font-family: Calibri, Arial, sans-serif !important; }
+          .doc2 { border: 2px solid #000000 !important; color: #000000 !important; font-size: 12px !important; background: #ffffff !important; width: 780px !important; }
+          .doc2 table { width: 100% !important; border-collapse: collapse !important; border-spacing: 0 !important; }
+          .doc2 td { border: 1px solid #000000 !important; padding: 5px 8px !important; vertical-align: middle !important; font-size: 12px !important; background-color: #ffffff !important; color: #000000 !important; }
+          .doc2 .noB { border: none !important; }
+          .doc2 .center { text-align: center !important; }
+          .doc2 .right { text-align: right !important; }
+          .doc2 .bold { font-weight: 700 !important; }
+          .doc2 .big { font-size: 21px !important; font-weight: 800 !important; letter-spacing: 0.01em !important; }
+          .doc2 .midtitle { font-size: 15px !important; font-weight: 800 !important; letter-spacing: 0.04em !important; }
+          .doc2 .small { font-size: 10.5px !important; }
+          .doc2 img.logo { width: 82px !important; display: block !important; margin: 0 auto !important; }
+          .doc2 .sectionbar { font-size: 11.5px !important; font-weight: 700 !important; padding: 5px 8px !important; background: #ffffff !important; }
+          .doc2 .italic { font-style: italic !important; }
+          .doc2 .label { font-weight: 700 !important; width: 150px !important; }
+          .doc2 .prose { font-size: 11.5px !important; line-height: 1.55 !important; padding: 8px 10px !important; }
+          .doc2 .prose ul { margin: 6px 0 !important; padding-left: 20px !important; }
+          .doc2 .prose li { margin-bottom: 4px !important; }
+          tr[style*="background:#eef3f0"], td[style*="background:#eef3f0"] { background-color: #eef3f0 !important; }
+        `;
+        clonedDoc.head.appendChild(docStyle);
+      },
     });
     document.body.removeChild(clone);
 
