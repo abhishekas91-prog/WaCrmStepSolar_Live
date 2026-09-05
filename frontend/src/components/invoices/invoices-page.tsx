@@ -449,30 +449,25 @@ Thank you for choosing Step Solar!`;
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contact_id: null,
-          conversation_id: null,
+          phone: sendPhone,
+          customer_name: custName,
           message_type: "text",
           content_text: textContent,
         }),
       });
 
-      if (res.ok) {
-        toast.success("WhatsApp Message Sent Directly!");
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && (data?.success || data?.message_id)) {
+        toast.success("WhatsApp Message Sent Directly via WA CRM!");
         setSendDialogOpen(false);
       } else {
-        // Fallback open WhatsApp link directly
-        const cleanPhone = sendPhone.replace(/\D/g, "");
-        const waUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(textContent)}`;
-        window.open(waUrl, "_blank");
-        toast.success("Opening WhatsApp for direct message...");
-        setSendDialogOpen(false);
+        toast.error(
+          data?.error || "Failed to send message via WA CRM API. Check WhatsApp connection."
+        );
       }
     } catch {
-      const cleanPhone = sendPhone.replace(/\D/g, "");
-      const waUrl = `https://wa.me/91${cleanPhone}?text=${encodeURIComponent(textContent)}`;
-      window.open(waUrl, "_blank");
-      toast.success("Opening WhatsApp...");
-      setSendDialogOpen(false);
+      toast.error("Error sending message via WA CRM API.");
     } finally {
       setSending(false);
     }
@@ -972,7 +967,7 @@ Thank you for choosing Step Solar!`;
                         </th>
                         <th className="p-2 w-[70px]">Qty</th>
                         <th className="p-2 w-[80px]">Unit</th>
-                        {(mode === "invoice" || mode === "receipt") && (
+                        {(mode === "invoice" || mode === "quotation" || mode === "receipt") && (
                           <>
                             <th className="p-2 w-[110px]">Price/Unit (₹)</th>
                             <th className="p-2 w-[70px]">GST %</th>
@@ -1013,7 +1008,7 @@ Thank you for choosing Step Solar!`;
                               className="h-8 text-xs"
                             />
                           </td>
-                          {(mode === "invoice" || mode === "receipt") && (
+                          {(mode === "invoice" || mode === "quotation" || mode === "receipt") && (
                             <>
                               <td className="p-1.5">
                                 <Input
@@ -1090,7 +1085,7 @@ Thank you for choosing Step Solar!`;
                     </div>
                   </div>
 
-                  {(mode === "invoice" || mode === "receipt") && (
+                  {(mode === "invoice" || mode === "quotation" || mode === "receipt") && (
                     <div className="space-y-1.5 border-t border-dashed border-border pt-3">
                       <Label className="text-xs font-semibold">
                         Target Grand Total (₹) — Auto-calculate item prices
