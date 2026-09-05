@@ -1043,13 +1043,14 @@ export function InvoicesPageContent() {
           }
         });
 
-        // Inject 100% clean standard CSS for Invoice (3).html replica
+        // Inject 100% clean standard CSS for Invoice (3).html replica with single-line borders
         const docStyle = clonedDoc.createElement("style");
         docStyle.innerHTML = `
           * { box-sizing: border-box !important; }
           body, html { background-color: #ffffff !important; color: #000000 !important; font-family: Calibri, Arial, sans-serif !important; }
-          .doc2 { border: 2px solid #000000 !important; color: #000000 !important; font-size: 12px !important; background: #ffffff !important; width: 780px !important; }
-          .doc2 table { width: 100% !important; border-collapse: collapse !important; border-spacing: 0 !important; }
+          .doc2 { border: 1px solid #000000 !important; color: #000000 !important; font-size: 12px !important; background: #ffffff !important; width: 780px !important; }
+          .doc2 table { width: 100% !important; border-collapse: collapse !important; border-spacing: 0 !important; margin-top: -1px !important; }
+          .doc2 table:first-child { margin-top: 0 !important; }
           .doc2 td { border: 1px solid #000000 !important; padding: 5px 8px !important; vertical-align: middle !important; font-size: 12px !important; background-color: #ffffff !important; color: #000000 !important; }
           .doc2 .noB { border: none !important; }
           .doc2 .center { text-align: center !important; }
@@ -1346,12 +1347,12 @@ Thank you for choosing Step Solar!`;
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">
-      {/* Exact-Replica Styles from Invoice (3).html */}
+      {/* Exact-Replica Styles from Invoice (3).html with single line borders */}
       <style
         dangerouslySetInnerHTML={{
           __html: `
         .doc2 {
-          border: 2px solid #000;
+          border: 1px solid #000;
           font-family: Calibri, Arial, sans-serif;
           color: #000;
           font-size: 12px;
@@ -1360,8 +1361,13 @@ Thank you for choosing Step Solar!`;
         .doc2 table {
           width: 100%;
           border-collapse: collapse;
+          border-spacing: 0;
+          margin-top: -1px;
           page-break-inside: avoid;
           break-inside: avoid;
+        }
+        .doc2 table:first-child {
+          margin-top: 0;
         }
         .doc2 td {
           border: 1px solid #000;
