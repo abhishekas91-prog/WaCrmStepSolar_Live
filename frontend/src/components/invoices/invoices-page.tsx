@@ -1012,7 +1012,7 @@ export function InvoicesPageContent() {
     );
 
     const canvas = await libs.html2canvas(clone, {
-      scale: 2,
+      scale: 1.5,
       useCORS: true,
       allowTaint: true,
       backgroundColor: "#ffffff",
@@ -1073,7 +1073,8 @@ export function InvoicesPageContent() {
     });
     document.body.removeChild(clone);
 
-    const imgData = canvas.toDataURL("image/png");
+    // Optimized JPEG compression to keep PDF size strictly under 2MB - 3MB for fast WhatsApp sending
+    const imgData = canvas.toDataURL("image/jpeg", 0.85);
     const pdf = new libs.jsPDF("p", "mm", "a4");
     const pageWidth = 210,
       pageHeight = 297;
@@ -1085,13 +1086,13 @@ export function InvoicesPageContent() {
     let heightLeft = imgHeight;
     let position = marginMM;
 
-    pdf.addImage(imgData, "PNG", marginMM, position, imgWidth, imgHeight);
+    pdf.addImage(imgData, "JPEG", marginMM, position, imgWidth, imgHeight, undefined, "FAST");
     heightLeft -= usableHeight;
 
     while (heightLeft > 0) {
       position = marginMM - (imgHeight - heightLeft);
       pdf.addPage();
-      pdf.addImage(imgData, "PNG", marginMM, position, imgWidth, imgHeight);
+      pdf.addImage(imgData, "JPEG", marginMM, position, imgWidth, imgHeight, undefined, "FAST");
       heightLeft -= usableHeight;
     }
 
