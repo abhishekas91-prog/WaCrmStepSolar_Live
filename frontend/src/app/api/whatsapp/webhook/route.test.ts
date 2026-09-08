@@ -5,6 +5,8 @@ const h = vi.hoisted(() => ({
   runAutomationsForTrigger: vi.fn(),
   dispatchInboundToFlows: vi.fn(),
   dispatchWebhookEvent: vi.fn(),
+  lookupCrmLead: vi.fn(),
+  engineSendText: vi.fn(),
   state: {
     // Result the message upsert's .select() resolves to. A genuine insert
     // returns the row; a replayed delivery conflicts and returns [].
@@ -16,6 +18,7 @@ const h = vi.hoisted(() => ({
     afterCallbacks: [] as (() => Promise<void> | void)[],
     automationStarted: 0,
     automationCompleted: 0,
+    crmLead: null as { id: string; code: string; full_name: string; stages: { key: string; label: string; status: string }[]; assigned_name: string | null; created_at: string } | null,
   },
 }))
 
@@ -147,11 +150,18 @@ vi.mock('@/lib/automations/engine', () => ({
 vi.mock('@/lib/flows/engine', () => ({
   dispatchInboundToFlows: h.dispatchInboundToFlows,
 }))
+vi.mock('@/lib/solar/crm-lookup', () => ({
+  lookupCrmLead: h.lookupCrmLead,
+  formatCrmStatusReply: (lead: typeof h.state.crmLead) => `CRM lead: ${lead?.code}`,
+}))
+vi.mock('@/lib/flows/meta-send', () => ({
+  engineSendText: h.engineSendText,
+}))
 vi.mock('@/lib/webhooks/deliver', () => ({
   dispatchWebhookEvent: h.dispatchWebhookEvent,
 }))
 
-import { POST } from './route'
+import { isGreeting, POST } from './route'
 
 function inboundRequest() {
   const body = {
@@ -201,6 +211,9 @@ beforeEach(() => {
   h.state.afterCallbacks = []
   h.state.automationStarted = 0
   h.state.automationCompleted = 0
+  h.state.crmLead = null
+  h.lookupCrmLead.mockResolvedValue(null)
+  h.engineSendText.mockResolvedValue(undefined)
   h.dispatchInboundToFlows.mockResolvedValue({ consumed: false })
   h.dispatchWebhookEvent.mockResolvedValue(undefined)
   h.runAutomationsForTrigger.mockImplementation(() => {
@@ -211,6 +224,38 @@ beforeEach(() => {
         resolve()
       }, 0)
     })
+  })
+})
+
+describe('greeting routing', () => {
+  it('recognizes supported greetings with punctuation and whitespace', () => {
+    expect(isGreeting(' hello! ')).toBe(true)
+    expect(isGreeting('Namaste')).toBe(true)
+    expect(isGreeting('नमस्ते?')).toBe(true)
+  })
+
+  it('does not treat a non-greeting message as a greeting', () => {
+    expect(isGreeting('hello solar')).toBe(false)
+    expect(isGreeting('solar ka price batao')).toBe(false)
+  })
+
+  it('replies from CRM and does not start a flow for an existing lead', async () => {
+    h.lookupCrmLead.mockResolvedValue({
+      id: 'lead-1',
+      code: 'SS-001',
+      full_name: 'Ada',
+      stages: [],
+      assigned_name: null,
+      created_at: '2026-09-09T00:00:00Z',
+    })
+
+    await runWebhook()
+
+    expect(h.lookupCrmLead).toHaveBeenCalledWith('5551230000')
+    expect(h.engineSendText).toHaveBeenCalledWith(expect.objectContaining({
+      text: 'CRM lead: SS-001',
+    }))
+    expect(h.dispatchInboundToFlows).not.toHaveBeenCalled()
   })
 })
 

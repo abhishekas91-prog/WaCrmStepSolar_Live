@@ -304,6 +304,14 @@ const SOLAR_ASSISTANT: FlowTemplate = {
   trigger_type: "keyword",
   trigger_config: {
     keywords: [
+      "hi",
+      "hello",
+      "hey",
+      "hii",
+      "helo",
+      "namaste",
+      "नमस्ते",
+      "हेलो",
       "solar",
       "surya",
       "rooftop",

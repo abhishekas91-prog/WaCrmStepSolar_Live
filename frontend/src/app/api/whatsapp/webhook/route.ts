@@ -353,6 +353,13 @@ const RECIPIENT_STATUS_LADDER = [
   'replied',
 ] as const
 
+/** Greetings should enter the Solar Assistant unless CRM has a lead reply. */
+export function isGreeting(text: string): boolean {
+  return /^(?:hi|hello|hey|hii|helo|namaste|नमस्ते|हेलो)(?:[\s,!?.]*)$/i.test(
+    text.trim(),
+  )
+}
+
 function ladderLevel(s: string): number {
   const idx = (RECIPIENT_STATUS_LADDER as readonly string[]).indexOf(s)
   return idx < 0 ? -1 : idx
@@ -777,6 +784,37 @@ async function processMessage(
   // trigger installed in migration 003).
   await flagBroadcastReplyIfAny(accountId, contactRecord.id)
 
+  // A greeting is the CRM handoff point. Returning customers get their live
+  // lead information first; new customers continue into Solar Assistant.
+  // Do this before flow dispatch so an existing lead cannot start a second
+  // solar run or receive two replies.
+  const inboundText = contentText ?? message.text?.body ?? ''
+  let crmGreetingHandled = false
+  if (message.type === 'text' && isGreeting(inboundText)) {
+    const lead = await lookupCrmLead(senderPhone.slice(-10))
+    if (lead) {
+      crmGreetingHandled = true
+      await engineSendText({
+        accountId,
+        userId: configOwnerUserId,
+        conversationId: conversation.id,
+        contactId: contactRecord.id,
+        text: formatCrmStatusReply(lead),
+      }).catch((err) => console.error('[crm-lookup] greeting reply failed:', err))
+    }
+  }
+
+  if (crmGreetingHandled) {
+    await dispatchWebhookEvent(supabaseAdmin(), accountId, 'message.received', {
+      conversation_id: conversation.id,
+      contact_id: contactRecord.id,
+      whatsapp_message_id: message.id,
+      content_type: contentType,
+      text: contentText,
+    })
+    return
+  }
+
   // ============================================================
   // Flow runner dispatch.
   //
@@ -823,7 +861,6 @@ async function processMessage(
   // message all exist before any step — including send_message — runs.
   // Fire-and-forget: a slow or failing automation must not block the
   // webhook's 200 OK response to Meta.
-  const inboundText = contentText ?? message.text?.body ?? ''
   const automationTriggers: (
     | 'new_contact_created'
     | 'first_inbound_message'
@@ -880,7 +917,7 @@ async function processMessage(
   // only auto-starts on `first_inbound_message`, so this is the one
   // case it doesn't cover). See lib/solar/crm-lookup.ts for why this
   // is plain code rather than a Flow/Automation node.
-  if (!contactOutcome.wasCreated && !isFirstInboundMessage && !flowConsumed) {
+  if (!contactOutcome.wasCreated && !isFirstInboundMessage && !flowConsumed && !isGreeting(inboundText)) {
     const phone10 = senderPhone.slice(-10) // drop the 91 country code
     const lead = await lookupCrmLead(phone10)
     if (lead) {
