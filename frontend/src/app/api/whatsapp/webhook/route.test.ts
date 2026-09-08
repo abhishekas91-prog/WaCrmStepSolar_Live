@@ -163,7 +163,7 @@ vi.mock('@/lib/webhooks/deliver', () => ({
 
 import { isGreeting, POST } from './route'
 
-function inboundRequest() {
+function inboundRequest(messageOverride?: Record<string, unknown>) {
   const body = {
     entry: [
       {
@@ -180,6 +180,7 @@ function inboundRequest() {
                   timestamp: '1700000000',
                   type: 'text',
                   text: { body: 'hello' },
+                  ...messageOverride,
                 },
               ],
             },
@@ -194,8 +195,8 @@ function inboundRequest() {
   } as unknown as Request
 }
 
-async function runWebhook() {
-  const res = await POST(inboundRequest())
+async function runWebhook(messageOverride?: Record<string, unknown>) {
+  const res = await POST(inboundRequest(messageOverride))
   // Drain the after() callback exactly as the runtime would.
   for (const cb of h.state.afterCallbacks) await cb()
   return res
@@ -256,6 +257,26 @@ describe('greeting routing', () => {
       text: 'CRM lead: SS-001',
     }))
     expect(h.dispatchInboundToFlows).not.toHaveBeenCalled()
+  })
+
+  it('passes a Meta button tap to the flow runner as an interactive reply', async () => {
+    await runWebhook({
+      id: 'wamid.BUTTON1',
+      type: 'interactive',
+      interactive: {
+        type: 'button_reply',
+        button_reply: { id: 'want_quote', title: 'Quote chahiye' },
+      },
+    })
+
+    expect(h.dispatchInboundToFlows).toHaveBeenCalledWith(expect.objectContaining({
+      message: {
+        kind: 'interactive_reply',
+        reply_id: 'want_quote',
+        reply_title: 'Quote chahiye',
+        meta_message_id: 'wamid.BUTTON1',
+      },
+    }))
   })
 })
 

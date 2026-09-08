@@ -793,14 +793,18 @@ async function processMessage(
   if (message.type === 'text' && isGreeting(inboundText)) {
     const lead = await lookupCrmLead(senderPhone.slice(-10))
     if (lead) {
-      crmGreetingHandled = true
-      await engineSendText({
-        accountId,
-        userId: configOwnerUserId,
-        conversationId: conversation.id,
-        contactId: contactRecord.id,
-        text: formatCrmStatusReply(lead),
-      }).catch((err) => console.error('[crm-lookup] greeting reply failed:', err))
+      try {
+        await engineSendText({
+          accountId,
+          userId: configOwnerUserId,
+          conversationId: conversation.id,
+          contactId: contactRecord.id,
+          text: formatCrmStatusReply(lead),
+        })
+        crmGreetingHandled = true
+      } catch (err) {
+        console.error('[crm-lookup] greeting reply failed:', err)
+      }
     }
   }
 

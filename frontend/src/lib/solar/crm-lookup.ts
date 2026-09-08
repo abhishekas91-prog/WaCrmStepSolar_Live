@@ -20,6 +20,8 @@ export interface CrmLeadStage {
   key: string
   label: string
   status: string
+  estimated_days?: number | null
+  duration_days?: number | null
 }
 
 export interface CrmLead {
@@ -53,7 +55,9 @@ export async function lookupCrmLead(phone10: string): Promise<CrmLead | null> {
       console.error('[crm-lookup] unexpected status', res.status)
       return null
     }
-    return (await res.json()) as CrmLead
+    const payload = await res.json() as CrmLead | { lead?: CrmLead } | CrmLead[]
+    const lead = Array.isArray(payload) ? payload[0] : 'lead' in payload ? payload.lead : payload
+    return lead && typeof lead === 'object' ? lead : null
   } catch (err) {
     console.error('[crm-lookup] request failed:', err)
     return null
@@ -112,10 +116,27 @@ export async function createCrmLead(
 /** Plain-text WhatsApp reply summarising an existing lead's status. */
 export function formatCrmStatusReply(lead: CrmLead): string {
   const current =
-    lead.stages.find((s) => s.status !== 'Completed') ?? lead.stages[lead.stages.length - 1]
+    lead.stages?.find((s) => !isCompletedStatus(s.status)) ??
+    lead.stages?.[lead.stages.length - 1] ??
+    null
+  const phase = current?.label || 'Initial review'
+  const status = current?.status || 'Pending'
+  const estimatedDays = current?.estimated_days ?? current?.duration_days
+  const timing = estimatedDays
+    ? `Is phase mein lagbhag ${estimatedDays} din lag sakte hain.`
+    : 'Hamari team aapko next update aur expected timeline jald share karegi.'
+  const assigned = lead.assigned_name
+    ? `Assigned executive: ${lead.assigned_name}.\n`
+    : ''
   return (
     `Namaste ${lead.full_name}! Aapka lead already register hai (Code: ${lead.code}).\n` +
-    `Current stage: *${current.label}* (${current.status}).\n` +
-    `Hamari team jald contact karegi.`
+    `Project phase: *${phase}* (${status}).\n` +
+    timing + '\n' +
+    assigned +
+    'Hamari team aapko next step ke baare mein jald contact karegi.'
   )
+}
+
+function isCompletedStatus(status: string): boolean {
+  return /^(completed|complete|done|closed)$/i.test(status.trim())
 }
