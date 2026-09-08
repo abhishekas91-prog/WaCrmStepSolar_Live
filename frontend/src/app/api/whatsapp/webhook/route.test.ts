@@ -290,6 +290,10 @@ describe('unsupported WhatsApp messages', () => {
         error_data: { details: 'This message may be a poll or view-once media.' },
       }],
     })).toContain('This message may be a poll or view-once media.')
+    expect(formatUnsupportedMessage({
+      type: 'unsupported',
+      errors: [{ code: 131051, title: 'Message type is currently not supported.' }],
+    })).toContain('Likely content: Poll, view-once photo/video, unsupported interactive message, or a newer WhatsApp message format')
   })
 })
 

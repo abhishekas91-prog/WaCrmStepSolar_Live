@@ -84,12 +84,22 @@ export function formatUnsupportedMessage(message: Pick<WhatsAppMessage, 'type' |
   const detail = metaError?.error_data?.details || metaError?.message || metaError?.title
   const code = metaError?.code ? `code ${metaError.code}` : 'no error code'
   const reason = detail || 'Meta did not provide a reason.'
+  const likelyContent = getLikelyUnsupportedContent(reason)
   return (
     `[Unsupported message]\n` +
     `Meta type: ${message.type}\n` +
     `Reason (${code}): ${reason}\n` +
+    `Likely content: ${likelyContent}\n` +
     'Original content was not delivered by Meta.'
   )
+}
+
+function getLikelyUnsupportedContent(reason: string): string {
+  const normalized = reason.toLowerCase()
+  if (/poll|survey|मतदान/.test(normalized)) return 'Poll'
+  if (/view.?once|one.?time|एक बार/.test(normalized)) return 'View-once photo/video'
+  if (/interactive|button|list|लिस्ट|बटन/.test(normalized)) return 'Unsupported interactive message'
+  return 'Poll, view-once photo/video, unsupported interactive message, or a newer WhatsApp message format'
 }
 
 interface WhatsAppWebhookEntry {
