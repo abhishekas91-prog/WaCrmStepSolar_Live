@@ -187,7 +187,11 @@ export function ConversationList({
       });
     }
 
-    return result;
+    return [...result].sort((a, b) => {
+      const ta = a.last_message_at ? Date.parse(a.last_message_at) : 0;
+      const tb = b.last_message_at ? Date.parse(b.last_message_at) : 0;
+      return tb - ta;
+    });
   }, [conversations, filter, search, selectedTagIds, selectedCompany]);
 
   const toggleTag = useCallback((id: string) => {

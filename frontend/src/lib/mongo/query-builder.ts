@@ -798,6 +798,42 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function stripMongoId(row: Row): Row {
+  if (!("_id" in row)) return row;
+  const copy = { ...(row as Row & { _id?: unknown }) };
+  delete copy._id;
+  return copy;
+}
+
+function isDuplicateKey(err: unknown): boolean {
+  return Boolean(
+    err && typeof err === "object" && (err as { code?: number }).code === 11000,
+  );
+}
+
+export function unwrapFindOneAndUpdateDoc(
+  result: unknown,
+): Record<string, unknown> | undefined {
+  if (result == null || typeof result !== "object") return undefined;
+  const r = result as Record<string, unknown>;
+  if ("lastErrorObject" in r || ("ok" in r && "value" in r)) {
+    const v = r.value;
+    return v && typeof v === "object"
+      ? (v as Record<string, unknown>)
+      : undefined;
+  }
+  return r;
+}
+
+export function wasFindOneAndUpdateUpsert(result: unknown): boolean {
+  if (result == null || typeof result !== "object") return false;
+  const meta = (result as { lastErrorObject?: { upserted?: unknown; updatedExisting?: boolean } })
+    .lastErrorObject;
+  if (meta?.upserted) return true;
+  if (meta?.updatedExisting === false) return true;
+  return false;
+}
+
 /** Shared PostgREST-compatible single()/maybeSingle() handling, used
  * both by plain selects and by the "return representation" path of
  * insert/update/upsert/delete (i.e. `.insert(...).select().single()`). */
@@ -1011,16 +1047,19 @@ async function execUpsert(
     }
     if (state.upsertIgnore) {
       const existing = await coll.findOne(conflictFilter, { projection: { _id: 0 } });
-      if (existing) {
-        out.push(existing as Row);
-        continue;
+      if (existing) continue;
+      const inserted = ensureId({ ...raw });
+      try {
+        await coll.insertOne(inserted);
+      } catch (err) {
+        if (isDuplicateKey(err)) continue;
+        throw err;
       }
+      const doc = stripMongoId(inserted);
+      out.push(doc);
+      await recordChange(state.table, "INSERT", doc, null);
+      continue;
     }
-    // Exclude _id (Mongo internal), id, and created_at from the $set
-    // payload — they must only ever be written via $setOnInsert (below),
-    // otherwise Mongo rejects the update with "conflicting update
-    // operators" (error 40) because the same path would be targeted by
-    // both $set and $setOnInsert.
     const { _id, id, created_at, ...rest } = row;
     const result = await coll.findOneAndUpdate(
       conflictFilter,
@@ -1028,10 +1067,11 @@ async function execUpsert(
         $set: { ...rest, updated_at: rest.updated_at ?? nowIso() },
         $setOnInsert: { id: row.id, created_at: row.created_at },
       },
-      { upsert: true, returnDocument: "after" },
+      { upsert: true, returnDocument: "after", includeResultMetadata: true },
     );
-    const doc = result?.value as Row | undefined;
-    const upserted = result?.lastErrorObject?.upserted ? true : false;
+    const rawDoc = unwrapFindOneAndUpdateDoc(result);
+    const doc = rawDoc ? stripMongoId(rawDoc as Row) : undefined;
+    const upserted = wasFindOneAndUpdateUpsert(result);
     if (doc) {
       out.push(doc);
       if (upserted) {

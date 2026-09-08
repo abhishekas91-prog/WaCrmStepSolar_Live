@@ -8,6 +8,7 @@
 
 import { collection } from "./connection";
 import type { SessionUser } from "./query-builder";
+import { recordChange } from "./realtime";
 
 export type RpcContext = {
   user?: SessionUser | null;
@@ -512,17 +513,27 @@ export async function bumpConversationOnInbound(
   args: { p_conversation_id: string; p_last_message_text: string },
 ): Promise<null> {
   if (!ctx.service) throw new RpcError("Permission denied", "42501");
-  await collection("conversations").updateOne(
+  const now = nowIso();
+  const updated = await collection("conversations").findOneAndUpdate(
     { id: args.p_conversation_id },
     {
       $inc: { unread_count: 1 },
       $set: {
         last_message_text: args.p_last_message_text,
-        last_message_at: nowIso(),
-        updated_at: nowIso(),
+        last_message_at: now,
+        updated_at: now,
       },
     },
+    { returnDocument: "after", includeResultMetadata: false, projection: { _id: 0 } },
   );
+  if (updated) {
+    await recordChange(
+      "conversations",
+      "UPDATE",
+      updated as Record<string, unknown>,
+      null,
+    );
+  }
   return null;
 }
 
