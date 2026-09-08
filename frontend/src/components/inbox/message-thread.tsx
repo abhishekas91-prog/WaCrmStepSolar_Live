@@ -449,6 +449,11 @@ export function MessageThread({
   //
   // Guarding on hasUnread prevents the eq-update loop: once unread_count
   // is 0 the condition is false, so no further UPDATE is issued.
+  //
+  // This only clears OUR badge though — it never talks to Meta. The
+  // /api/whatsapp/mark-read call alongside it is what actually flips
+  // the double-tick to blue on the customer's phone; fire-and-forget
+  // since a failed read receipt shouldn't block the local unread reset.
   useEffect(() => {
     if (!conversationId || !hasUnread) return;
     const supabase = createClient();
@@ -459,6 +464,14 @@ export function MessageThread({
       .then(({ error }) => {
         if (error) console.error("Failed to reset unread_count:", error);
       });
+
+    fetch("/api/whatsapp/mark-read", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ conversation_id: conversationId }),
+    }).catch((error) => {
+      console.error("Failed to send read receipt:", error);
+    });
   }, [conversationId, hasUnread]);
 
   // Auto-scroll to bottom on new messages

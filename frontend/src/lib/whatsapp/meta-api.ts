@@ -991,6 +991,49 @@ function validateInteractiveHeaderFooter(
 }
 
 // ============================================================
+// Read receipts
+// ============================================================
+
+export interface MarkMessageAsReadArgs {
+  phoneNumberId: string
+  accessToken: string
+  /** Meta's wamid of the INBOUND (customer) message to mark read. */
+  messageId: string
+}
+
+/**
+ * Tell Meta the customer's message has been read. This is what flips
+ * the double-tick blue on the customer's side — Meta will not do it
+ * on its own just because we fetched/displayed the message.
+ *
+ * Only valid for inbound messages (messages the customer sent to us).
+ * Marking one as read also clears WhatsApp's "typing…" indicator
+ * requirement window and, per Meta's docs, is a no-op (200 OK) if
+ * called again on an already-read message — safe to call liberally.
+ */
+export async function markMessageAsRead(
+  args: MarkMessageAsReadArgs
+): Promise<void> {
+  const { phoneNumberId, accessToken, messageId } = args
+  const url = `${META_API_BASE}/${phoneNumberId}/messages`
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      status: 'read',
+      message_id: messageId,
+    }),
+  })
+  if (!response.ok) {
+    await throwMetaError(response, `Meta API error: ${response.status}`)
+  }
+}
+
+// ============================================================
 // Media
 // ============================================================
 
