@@ -6,8 +6,8 @@
 
 FROM node:20-slim AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json yarn.lock .yarnrc ./
+RUN corepack enable && yarn install --frozen-lockfile
 
 FROM node:20-slim AS builder
 WORKDIR /app

@@ -3,7 +3,7 @@
   "version": "0.8.0",
   "private": true,
   "engines": {
-    "node": ">=20.0.0"
+    "node": "20.x"
   },
   "scripts": {
     "dev": "next dev -p 3000 -H 0.0.0.0",
@@ -22,7 +22,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "@supabase/ssr": "^0.12.0",
+    "@supabase/ssr": "0.12.0",
     "@supabase/supabase-js": "2.109.0",
     "@xyflow/react": "^12.11.2",
     "bcryptjs": "^3.0.3",
@@ -40,6 +40,7 @@
     "opus-recorder": "^8.0.5",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-is": "^19.2.4",
     "recharts": "^3.10.1",
     "shadcn": "^4.11.0",
     "sonner": "^2.0.7",
@@ -58,10 +59,13 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
     "typescript": "^6",
+    "vite": "^7.1.11",
     "vitest": "^4.1.10"
   },
   "resolutions": {
-    "@supabase/supabase-js": "2.109.0"
+    "@supabase/supabase-js": "2.109.0",
+    "react-is": "^19.2.4",
+    "vite": "^7.1.11"
   },
   "overrides": {
     "postcss": "^8.5.10",

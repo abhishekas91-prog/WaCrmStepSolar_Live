@@ -5,6 +5,7 @@ build
 coverage
 next-env.d.ts
 package-lock.json
+yarn.lock
 # Generated / vendored
 supabase/migrations
 public/opus
