@@ -32,6 +32,7 @@ describe("matchReplyId", () => {
     };
     expect(matchReplyId(node, "yes")).toBe("confirmed");
     expect(matchReplyId(node, "no")).toBe("declined");
+    expect(matchReplyId(node, "legacy-id", "Yes")).toBe("confirmed");
   });
 
   it("returns null when no button reply_id matches", () => {

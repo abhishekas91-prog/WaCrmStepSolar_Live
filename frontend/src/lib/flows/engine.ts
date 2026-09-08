@@ -74,16 +74,25 @@ import {
 export function matchReplyId(
   node: { node_type: string; config: Record<string, unknown> },
   reply_id: string,
+  reply_title?: string,
 ): string | null {
   if (node.node_type === "send_buttons") {
     const cfg = node.config as unknown as SendButtonsNodeConfig;
-    const hit = cfg.buttons?.find((b) => b.reply_id === reply_id);
+    const hit = cfg.buttons?.find(
+      (b) =>
+        b.reply_id === reply_id ||
+        (!!reply_title && b.title.trim().toLowerCase() === reply_title.trim().toLowerCase()),
+    );
     return hit?.next_node_key ?? null;
   }
   if (node.node_type === "send_list") {
     const cfg = node.config as unknown as SendListNodeConfig;
     for (const section of cfg.sections ?? []) {
-      const hit = section.rows?.find((r) => r.reply_id === reply_id);
+      const hit = section.rows?.find(
+        (r) =>
+          r.reply_id === reply_id ||
+          (!!reply_title && r.title.trim().toLowerCase() === reply_title.trim().toLowerCase()),
+      );
       if (hit) return hit.next_node_key;
     }
     return null;
@@ -913,6 +922,20 @@ export async function dispatchInboundToFlows(
           outcome: "duplicate_inbound_ignored",
         };
       }
+      // A repeated greeting is not an answer to the currently displayed
+      // button/list prompt. Consume it without re-sending the same prompt.
+      if (
+        input.message.kind === "text" &&
+        /^(?:hi|hello|hey|hii|helo|namaste|नमस्ते|हेलो)(?:[\s,!?.]*)$/i.test(
+          input.message.text.trim(),
+        )
+      ) {
+        return {
+          consumed: true,
+          flow_run_id: activeRun.id,
+          outcome: "no_match",
+        };
+      }
       // One SELECT for the whole flow's nodes — advance loop is now
       // in-memory. See loadAllNodes.
       const nodes = await loadAllNodes(db, activeRun.flow_id);
@@ -988,7 +1011,7 @@ async function handleReplyForActiveRun(
     (currentNode.node_type === "send_buttons" ||
       currentNode.node_type === "send_list")
   ) {
-    matched = matchReplyId(currentNode, message.reply_id);
+    matched = matchReplyId(currentNode, message.reply_id, message.reply_title);
   } else if (
     message.kind === "text" &&
     currentNode.node_type === "collect_input"

@@ -1079,11 +1079,11 @@ async function parseMessageContent(
       // stable id separately so the Flows engine can route on it.
       const reply =
         message.interactive?.button_reply ?? message.interactive?.list_reply
-      if (reply?.id) {
+      if (reply?.id || reply?.title) {
         return {
           ...empty,
           contentText: reply.title || reply.id,
-          interactiveReplyId: reply.id,
+          interactiveReplyId: reply.id || reply.title,
         }
       }
       return { ...empty, contentText: '[Interactive reply]' }
