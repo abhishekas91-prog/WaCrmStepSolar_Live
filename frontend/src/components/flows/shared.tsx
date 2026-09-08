@@ -27,6 +27,7 @@ import {
   PlayCircle,
   Tag,
   UserPlus,
+  UserSquare2,
   Workflow,
 } from 'lucide-react';
 
@@ -49,6 +50,7 @@ export type NodeType =
   | 'collect_input'
   | 'condition'
   | 'set_tag'
+  | 'create_lead'
   | 'handoff'
   | 'end';
 
@@ -152,6 +154,13 @@ export const NODE_META: Record<
     blurb: 'Adds or removes a contact tag',
     category: 'logic',
   },
+  create_lead: {
+    label: 'Create CRM lead',
+    icon: UserSquare2,
+    color: 'text-orange-400',
+    blurb: 'Creates a lead in StepSolar-CRM',
+    category: 'logic',
+  },
   handoff: {
     label: 'Handoff to agent',
     icon: UserPlus,
@@ -205,6 +214,7 @@ const NODE_HUE: Record<NodeType, { l: number; c: number; h: number }> = {
   collect_input: { l: 0.65, c: 0.1, h: 185 }, // teal — capture
   condition: { l: 0.72, c: 0.15, h: 65 }, // amber — a fork in the road
   set_tag: { l: 0.65, c: 0.15, h: 350 }, // pink
+  create_lead: { l: 0.7, c: 0.16, h: 45 }, // orange — new record
   handoff: { l: 0.65, c: 0.17, h: 16 }, // rose — hands off
   end: { l: 0.55, c: 0.01, h: 260 }, // neutral grey — terminal
 };
@@ -419,6 +429,12 @@ export function summarizeNode(
       return tagId
         ? t ? t('tagPicked', { mode, tag: tagId.slice(0, 8) }) : `${mode} tag ${tagId.slice(0, 8)}…`
         : t ? t('tagNone', { mode }) : `${mode} tag (none picked)`;
+    }
+    case 'create_lead': {
+      const name = typeof cfg.full_name === 'string' ? cfg.full_name : '';
+      const bill = typeof cfg.monthly_bill === 'string' ? cfg.monthly_bill : '';
+      if (!name && !bill) return null;
+      return [name, bill ? `bill ${bill}` : ''].filter(Boolean).join(' · ');
     }
     case 'handoff': {
       const note = typeof cfg.note === 'string' ? cfg.note : '';

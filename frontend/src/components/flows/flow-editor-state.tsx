@@ -183,6 +183,20 @@ export function defaultConfigFor(type: NodeType): Record<string, unknown> {
       };
     case "set_tag":
       return { mode: "add", tag_id: "", next_node_key: "" };
+    case "create_lead":
+      return {
+        full_name: "{{vars.name}}",
+        email: "{{vars.email}}",
+        state: "",
+        city: "{{vars.city}}",
+        pincode: "{{vars.pincode}}",
+        property_type: "Residential",
+        monthly_bill: "",
+        roof_type: "RCC",
+        timeline: "Not decided",
+        source: "whatsapp_flow",
+        next_node_key: "",
+      };
     case "handoff":
       return { note: "" };
     case "end":

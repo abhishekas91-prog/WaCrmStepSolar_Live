@@ -701,6 +701,61 @@ function validateNode(
       break;
     }
 
+    case "create_lead": {
+      const cfg = node.config as {
+        full_name?: string;
+        email?: string;
+        state?: string;
+        city?: string;
+        pincode?: string;
+        property_type?: string;
+        monthly_bill?: string;
+        roof_type?: string;
+        timeline?: string;
+        next_node_key?: string;
+      };
+      const REQUIRED_FIELDS = [
+        "full_name",
+        "email",
+        "state",
+        "city",
+        "pincode",
+        "property_type",
+        "monthly_bill",
+        "roof_type",
+        "timeline",
+      ] as const;
+      for (const field of REQUIRED_FIELDS) {
+        if (!cfg[field]?.trim()) {
+          issues.push({
+            severity: "error",
+            scope: "node",
+            node_key: node.node_key,
+            field,
+            message: `Create-lead needs "${field}" (literal text or {{vars.x}}) — StepSolar-CRM rejects the submission without it.`,
+          });
+        }
+      }
+      if (!cfg.next_node_key) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: "Create-lead must point to a next node.",
+        });
+      } else if (!knownKeys.has(cfg.next_node_key)) {
+        issues.push({
+          severity: "error",
+          scope: "node",
+          node_key: node.node_key,
+          field: "next_node_key",
+          message: `Create-lead points to non-existent node "${cfg.next_node_key}".`,
+        });
+      }
+      break;
+    }
+
     case "handoff":
     case "end":
       // Terminal nodes have no outgoing edges; nothing to validate
@@ -751,7 +806,8 @@ function outgoingEdges(node: NodeInput): string[] {
     case "send_message":
     case "send_media":
     case "collect_input":
-    case "set_tag": {
+    case "set_tag":
+    case "create_lead": {
       const cfg = node.config as { next_node_key?: string };
       return cfg.next_node_key ? [cfg.next_node_key] : [];
     }

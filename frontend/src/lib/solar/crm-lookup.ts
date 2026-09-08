@@ -60,6 +60,55 @@ export async function lookupCrmLead(phone10: string): Promise<CrmLead | null> {
   }
 }
 
+export interface CreateLeadInput {
+  full_name: string
+  /** 10-digit Indian mobile number, no country code. */
+  phone: string
+  email: string
+  state: string
+  city: string
+  pincode: string
+  property_type: string
+  monthly_bill: number
+  roof_type: string
+  timeline: string
+  source?: string
+}
+
+/**
+ * Creates a lead in StepSolar-CRM — called from the Flows engine's
+ * `create_lead` node once a WhatsApp conversation has collected
+ * enough details (see engine.ts).
+ *
+ * Hits the SAME public `POST /api/leads` the website enquiry form
+ * posts to, so — unlike `lookupCrmLead` — no `X-Service-Key` header
+ * is needed here. The backend applies its own validation (required
+ * fields, phone format, 429 on a duplicate within its dedupe window)
+ * — this function surfaces failures to the caller rather than
+ * throwing, so a bad/duplicate submission doesn't crash the flow run.
+ */
+export async function createCrmLead(
+  input: CreateLeadInput,
+): Promise<{ id: string; code: string } | null> {
+  try {
+    const res = await fetch(`${CRM_BASE}/leads`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...input, source: input.source ?? 'whatsapp_flow' }),
+      signal: AbortSignal.timeout(8000),
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      console.error('[crm-lookup] create_lead failed', res.status, detail)
+      return null
+    }
+    return (await res.json()) as { id: string; code: string }
+  } catch (err) {
+    console.error('[crm-lookup] create_lead request failed:', err)
+    return null
+  }
+}
+
 /** Plain-text WhatsApp reply summarising an existing lead's status. */
 export function formatCrmStatusReply(lead: CrmLead): string {
   const current =

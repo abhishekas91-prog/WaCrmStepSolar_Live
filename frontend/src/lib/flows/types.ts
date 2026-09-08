@@ -173,6 +173,39 @@ export interface SetTagNodeConfig {
   next_node_key: string;
 }
 
+/**
+ * Creates a lead in StepSolar-CRM via `POST /api/leads` (the same
+ * public endpoint the website enquiry form uses — no service key
+ * needed, unlike the read-side `/leads/lookup`).
+ *
+ * Every field except `phone` (taken automatically from the WhatsApp
+ * contact) accepts a literal string OR `{{vars.X}}` interpolation
+ * against `flow_runs.vars`, same syntax as send_message /
+ * collect_input. Fields the conversation doesn't collect (state,
+ * property_type, roof_type, timeline) are usually left as literal
+ * defaults in the builder.
+ *
+ * Non-fatal by design: a failed create_lead call (validation error,
+ * duplicate, network) is logged and the run advances anyway — a
+ * lead-sync hiccup shouldn't strand the customer mid-conversation.
+ * See `lib/solar/crm-lookup.ts` for the actual HTTP call.
+ */
+export interface CreateLeadNodeConfig {
+  full_name: string;
+  email: string;
+  state: string;
+  city: string;
+  pincode: string;
+  property_type: string;
+  /** Interpolated then parsed as an integer (rupees/month). */
+  monthly_bill: string;
+  roof_type: string;
+  timeline: string;
+  /** Defaults to "whatsapp_flow" if left blank. */
+  source?: string;
+  next_node_key: string;
+}
+
 // Terminal nodes carry no config — they just stop the run.
 export type EndNodeConfig = Record<string, never>;
 
@@ -193,6 +226,7 @@ export type FlowNodeConfig =
   | { node_type: "collect_input"; config: CollectInputNodeConfig }
   | { node_type: "condition"; config: ConditionNodeConfig }
   | { node_type: "set_tag"; config: SetTagNodeConfig }
+  | { node_type: "create_lead"; config: CreateLeadNodeConfig }
   | { node_type: "handoff"; config: HandoffNodeConfig }
   | { node_type: "end"; config: EndNodeConfig };
 

@@ -42,9 +42,11 @@ import {
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
+import { createCrmLead } from "@/lib/solar/crm-lookup";
 import {
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
+  type CreateLeadNodeConfig,
   type DispatchInboundInput,
   type DispatchInboundResult,
   type FlowNodeRow,
@@ -118,7 +120,8 @@ export function isAutoAdvancing(node_type: string): boolean {
     node_type === "send_message" ||
     node_type === "send_media" ||
     node_type === "condition" ||
-    node_type === "set_tag"
+    node_type === "set_tag" ||
+    node_type === "create_lead"
   );
 }
 
@@ -732,6 +735,56 @@ async function advanceFromNodeKey(
         // strand the customer mid-flow.
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "set_tag_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+      }
+      currentKey = cfg.next_node_key;
+      continue;
+    }
+    if (node.node_type === "create_lead") {
+      const cfg = node.config as unknown as CreateLeadNodeConfig;
+      try {
+        const { data: contact } = await db
+          .from("contacts")
+          .select("phone")
+          .eq("id", run.contact_id!)
+          .eq("account_id", run.account_id)
+          .maybeSingle();
+        const phone10 =
+          typeof contact?.phone === "string" ? contact.phone.slice(-10) : "";
+        const parsedBill = parseInt(
+          interpolateVars(cfg.monthly_bill, run.vars),
+          10,
+        );
+        const result = await createCrmLead({
+          full_name: interpolateVars(cfg.full_name, run.vars),
+          phone: phone10,
+          email: interpolateVars(cfg.email, run.vars),
+          state: interpolateVars(cfg.state, run.vars),
+          city: interpolateVars(cfg.city, run.vars),
+          pincode: interpolateVars(cfg.pincode, run.vars),
+          property_type: interpolateVars(cfg.property_type, run.vars),
+          monthly_bill: Number.isFinite(parsedBill) ? parsedBill : 0,
+          roof_type: interpolateVars(cfg.roof_type, run.vars),
+          timeline: interpolateVars(cfg.timeline, run.vars),
+          source: cfg.source,
+        });
+        if (!result) {
+          // Non-fatal — same reasoning as set_tag below: a lead-sync
+          // hiccup (missing field, duplicate, CRM downtime) shouldn't
+          // strand the customer mid-conversation.
+          await logEvent(db, run.id, "error", node.node_key, {
+            reason: "create_lead_failed",
+          });
+        } else {
+          await logEvent(db, run.id, "node_entered", node.node_key, {
+            lead_id: result.id,
+            lead_code: result.code,
+          });
+        }
+      } catch (err) {
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "create_lead_failed",
           detail: err instanceof Error ? err.message : String(err),
         });
       }

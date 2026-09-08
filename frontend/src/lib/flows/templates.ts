@@ -22,6 +22,7 @@
 import type {
   CollectInputNodeConfig,
   ConditionNodeConfig,
+  CreateLeadNodeConfig,
   HandoffNodeConfig,
   KeywordTriggerConfig,
   SendButtonsNodeConfig,
@@ -38,6 +39,7 @@ export type FlowTemplateNodeType =
   | "collect_input"
   | "condition"
   | "set_tag"
+  | "create_lead"
   | "handoff"
   | "end";
 
@@ -333,7 +335,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
           {
             reply_id: "want_quote",
             title: "Quote chahiye",
-            next_node_key: "ask_bill",
+            next_node_key: "check_lead_info",
           },
           {
             reply_id: "want_process",
@@ -347,6 +349,58 @@ const SOLAR_ASSISTANT: FlowTemplate = {
           },
         ],
       } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "check_lead_info",
+      node_type: "condition",
+      config: {
+        subject: "var",
+        subject_key: "name",
+        operator: "present",
+        // Already answered name/email/city/pincode earlier in this
+        // same conversation (customer came back via "Aur jaankari" or
+        // "Process dekhein" after already getting a quote) → skip
+        // straight to the bill-slab menu instead of re-asking.
+        true_next: "ask_bill",
+        false_next: "ask_name",
+      } as ConditionNodeConfig,
+    },
+    {
+      node_key: "ask_name",
+      node_type: "collect_input",
+      config: {
+        prompt_text:
+          "Great! Quote ke liye kuch details chahiye.\n\nAapka poora naam?",
+        var_key: "name",
+        next_node_key: "ask_email",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "ask_email",
+      node_type: "collect_input",
+      config: {
+        prompt_text: "Thanks {{vars.name}}! Aapka email address?",
+        var_key: "email",
+        next_node_key: "ask_city",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "ask_city",
+      node_type: "collect_input",
+      config: {
+        prompt_text: "Aap kis city/qasbe mein rehte hain?",
+        var_key: "city",
+        next_node_key: "ask_pincode",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "ask_pincode",
+      node_type: "collect_input",
+      config: {
+        prompt_text: "Aur 6-digit pincode?",
+        var_key: "pincode",
+        next_node_key: "ask_bill",
+      } as CollectInputNodeConfig,
     },
     {
       node_key: "ask_bill",
@@ -363,30 +417,98 @@ const SOLAR_ASSISTANT: FlowTemplate = {
                 reply_id: "bill_lt_1500",
                 title: "1500 se kam",
                 description: "Chhota ghar — ~2 kW system",
-                next_node_key: "quote_2kw",
+                next_node_key: "create_lead_2kw",
               },
               {
                 reply_id: "bill_1500_2500",
                 title: "1500 se 2500",
                 description: "Typical home — ~3 kW system",
-                next_node_key: "quote_3kw",
+                next_node_key: "create_lead_3kw",
               },
               {
                 reply_id: "bill_2500_4000",
                 title: "2500 se 4000",
                 description: "Bada ghar — ~5 kW system",
-                next_node_key: "quote_5kw",
+                next_node_key: "create_lead_5kw",
               },
               {
                 reply_id: "bill_gt_4000",
                 title: "4000 se zyada",
                 description: "High consumption — ~7.5 kW",
-                next_node_key: "quote_75kw",
+                next_node_key: "create_lead_75kw",
               },
             ],
           },
         ],
       } as SendListNodeConfig,
+    },
+    {
+      node_key: "create_lead_2kw",
+      node_type: "create_lead",
+      config: {
+        full_name: "{{vars.name}}",
+        email: "{{vars.email}}",
+        state: "Uttar Pradesh",
+        city: "{{vars.city}}",
+        pincode: "{{vars.pincode}}",
+        property_type: "Residential",
+        monthly_bill: "1500",
+        roof_type: "RCC",
+        timeline: "Not decided",
+        source: "whatsapp_flow",
+        next_node_key: "quote_2kw",
+      } as CreateLeadNodeConfig,
+    },
+    {
+      node_key: "create_lead_3kw",
+      node_type: "create_lead",
+      config: {
+        full_name: "{{vars.name}}",
+        email: "{{vars.email}}",
+        state: "Uttar Pradesh",
+        city: "{{vars.city}}",
+        pincode: "{{vars.pincode}}",
+        property_type: "Residential",
+        monthly_bill: "2500",
+        roof_type: "RCC",
+        timeline: "Not decided",
+        source: "whatsapp_flow",
+        next_node_key: "quote_3kw",
+      } as CreateLeadNodeConfig,
+    },
+    {
+      node_key: "create_lead_5kw",
+      node_type: "create_lead",
+      config: {
+        full_name: "{{vars.name}}",
+        email: "{{vars.email}}",
+        state: "Uttar Pradesh",
+        city: "{{vars.city}}",
+        pincode: "{{vars.pincode}}",
+        property_type: "Residential",
+        monthly_bill: "4000",
+        roof_type: "RCC",
+        timeline: "Not decided",
+        source: "whatsapp_flow",
+        next_node_key: "quote_5kw",
+      } as CreateLeadNodeConfig,
+    },
+    {
+      node_key: "create_lead_75kw",
+      node_type: "create_lead",
+      config: {
+        full_name: "{{vars.name}}",
+        email: "{{vars.email}}",
+        state: "Uttar Pradesh",
+        city: "{{vars.city}}",
+        pincode: "{{vars.pincode}}",
+        property_type: "Residential",
+        monthly_bill: "5000",
+        roof_type: "RCC",
+        timeline: "Not decided",
+        source: "whatsapp_flow",
+        next_node_key: "quote_75kw",
+      } as CreateLeadNodeConfig,
     },
     {
       node_key: "quote_2kw",
@@ -464,7 +586,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
                 reply_id: "more_quote",
                 title: "Quote chahiye",
                 description: "Bill ke hisaab se size + cost",
-                next_node_key: "ask_bill",
+                next_node_key: "check_lead_info",
               },
               {
                 reply_id: "more_human",
@@ -502,7 +624,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
           {
             reply_id: "info_quote",
             title: "Quote chahiye",
-            next_node_key: "ask_bill",
+            next_node_key: "check_lead_info",
           },
           {
             reply_id: "info_agent",

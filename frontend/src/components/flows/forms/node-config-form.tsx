@@ -195,6 +195,16 @@ export function NodeConfigForm({
         />
       );
 
+    case "create_lead":
+      return (
+        <CreateLeadForm
+          cfg={cfg as CreateLeadCfg}
+          allNodes={allNodes}
+          currentKey={node.node_key}
+          onUpdateConfig={onUpdateConfig}
+        />
+      );
+
     case "handoff":
       return (
         <TextRow
@@ -860,6 +870,82 @@ function useUserTags(): UserTag[] {
     };
   }, []);
   return tags;
+}
+
+// ============================================================
+// create_lead
+// ============================================================
+
+interface CreateLeadCfg {
+  full_name?: string;
+  email?: string;
+  state?: string;
+  city?: string;
+  pincode?: string;
+  property_type?: string;
+  monthly_bill?: string;
+  roof_type?: string;
+  timeline?: string;
+  source?: string;
+  next_node_key?: string;
+}
+
+function CreateLeadForm({
+  cfg,
+  allNodes,
+  currentKey,
+  onUpdateConfig,
+}: {
+  cfg: CreateLeadCfg;
+  allNodes: BuilderNode[];
+  currentKey: string;
+  onUpdateConfig: (patch: Record<string, unknown>) => void;
+}) {
+  const field = (
+    key: keyof CreateLeadCfg,
+    label: string,
+    placeholder?: string,
+  ) => (
+    <div>
+      <label className="mb-1 block text-xs text-muted-foreground">{label}</label>
+      <Input
+        value={cfg[key] ?? ""}
+        onChange={(e) => onUpdateConfig({ [key]: e.target.value })}
+        placeholder={placeholder}
+        className="bg-muted font-mono text-xs"
+      />
+    </div>
+  );
+
+  return (
+    <>
+      <p className="text-xs text-muted-foreground">
+        Creates a lead in StepSolar-CRM (POST /api/leads). Every field
+        below accepts a literal value or {"{{vars.x}}"} from an earlier
+        Collect-input node — leave a field literal (e.g. &quot;Residential&quot;)
+        when the conversation never asks for it.
+      </p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {field("full_name", "Full name", "{{vars.name}}")}
+        {field("email", "Email", "{{vars.email}}")}
+        {field("city", "City", "{{vars.city}}")}
+        {field("pincode", "Pincode", "{{vars.pincode}}")}
+        {field("state", "State", "Uttar Pradesh")}
+        {field("property_type", "Property type", "Residential")}
+        {field("monthly_bill", "Monthly bill (₹)", "1500 or {{vars.bill}}")}
+        {field("roof_type", "Roof type", "RCC")}
+        {field("timeline", "Timeline", "Not decided")}
+        {field("source", "Source (optional)", "whatsapp_flow")}
+      </div>
+      <NextNodeRow
+        value={cfg.next_node_key ?? ""}
+        allNodes={allNodes}
+        currentKey={currentKey}
+        onChange={(v) => onUpdateConfig({ next_node_key: v })}
+        label="Then advance to"
+      />
+    </>
+  );
 }
 
 // ============================================================
