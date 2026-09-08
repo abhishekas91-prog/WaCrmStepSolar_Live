@@ -1,17 +1,11 @@
 // ============================================================
-// Solar WhatsApp agent — the deterministic consultation bot.
+// Legacy solar WhatsApp agent (unused on the webhook).
 //
-// On a solar-related inbound message it:
-//   1. reads the account's solar config + the contact's CRM profile,
-//   2. extracts facts (bill amount / units / state) from the thread,
-//   3. computes a sized recommendation (kW / cost / subsidy / savings),
-//   4. replies in friendly Hinglish, asking for whatever's missing,
-//   5. logs the recommendation and writes the learned facts back to
-//      the contact in the CRM.
-//
-// It NEVER throws into the webhook path: failures log and return
-// `{ handled: false }` so the generic AI auto-reply (or silence) can
-// take over. Deterministic math — the LLM never computes prices.
+// Solar inbound is handled by the Flows template `solar_assistant`.
+// This module is kept so Settings → Solar Assistant live preview can
+// still share calculator helpers via recommend/format. Do not wire
+// `dispatchInboundToSolar` back into the webhook — there is no LLM
+// and the Flow owns the conversation.
 // ============================================================
 
 import type { SolarConfig, SolarRecommendation, SolarInput } from './types'

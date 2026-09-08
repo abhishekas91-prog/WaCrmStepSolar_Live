@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Sun,
   Settings2,
@@ -12,10 +13,13 @@ import {
   FileText,
   MapPin,
   IndianRupee,
+  Workflow,
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { SolarConfigPanel } from '@/components/settings/solar-config';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 
 type Tab = 'how' | 'setup';
@@ -63,6 +67,13 @@ export default function SolarAssistantPage() {
         </h1>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">{t('subtitle')}</p>
+      <Link
+        href="/flows"
+        className={cn(buttonVariants(), 'mt-4 inline-flex')}
+      >
+        <Workflow className="mr-2 h-4 w-4" />
+        Flows — Solar Assistant template
+      </Link>
 
       <Tabs
         value={tab}

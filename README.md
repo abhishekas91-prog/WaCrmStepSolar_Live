@@ -20,18 +20,12 @@ On a phone you can also Add to Home Screen (PWA) from the web CRM — standalone
 
 See `frontend/README.md` and `deploy/DEPLOYMENT.md`.
 
-## Multi AI Integration
+## Solar Assistant (no AI key)
 
-Priority: Meta AI > Gemini > Groq > OpenAI > Anthropic
+WhatsApp solar quotes run as a **Flow**, not an LLM. There is no provider API key in this project.
 
-```bash
-pip install requests python-dotenv
-```
+1. Open **Flows**
+2. New flow → **Solar Assistant**
+3. **Activate**
 
-Copy `.env.example` to `.env` and add keys, then:
-
-```python
-from ai_service import AIService
-ai = AIService()
-reply = ai.get_reply(customer_msg, "Your FAQ here")
-```
+Customers who type solar / rooftop / subsidy get a button menu, pick a bill slab, and receive a Hinglish quote (2 / 3 / 5 / 7.5 kW).

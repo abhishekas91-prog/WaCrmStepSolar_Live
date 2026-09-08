@@ -8,8 +8,6 @@ import { reopenClosedConversation } from '@/lib/conversations/reopen'
 import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
-import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
-import { dispatchInboundToSolar } from '@/lib/solar/agent'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
 import {
   handleTemplateWebhookChange,
@@ -874,32 +872,10 @@ async function processMessage(
     }).catch((err) => console.error('[automations] dispatch failed:', err))
   }
 
-  // Solar Assistant (deterministic consultation bot). Runs for
-  // plain-text inbound the flow runner did NOT consume. It owns solar
-  // queries (bill/units/state → kW, cost, subsidy, process) and
-  // answers deterministically with the account's solar config + the
-  // contact's CRM data. Awaited inside `after()` (same reason as the
-  // AI dispatch below); `dispatchInboundToSolar` owns its gates and
-  // never throws. When it handles the message the generic AI auto-reply
-  // stands down so the customer isn't double-texted.
-  if (!flowConsumed && !interactiveReplyId && inboundText.trim()) {
-    const solarHandled = await dispatchInboundToSolar({
-      accountId,
-      userId: configOwnerUserId,
-      conversationId: conversation.id,
-      contactId: contactRecord.id,
-      message: inboundText,
-    })
-
-    if (!solarHandled.handled) {
-      await dispatchInboundToAiReply({
-        accountId,
-        conversationId: conversation.id,
-        contactId: contactRecord.id,
-        configOwnerUserId,
-      })
-    }
-  }
+  // Solar quotes and AI auto-reply used to run here. Both are gone:
+  // there is no LLM key in this deployment, and Solar Assistant now
+  // lives as a Flows template (keyword menu + bill-slab quotes).
+  // Activate "Solar Assistant" under Flows to handle solar inbound.
 
   // message.received webhook (public API). Awaited — not fire-and-forget
   // — because we're inside the route's `after()` block, which only keeps

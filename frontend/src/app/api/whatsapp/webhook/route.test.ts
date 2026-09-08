@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const h = vi.hoisted(() => ({
   runAutomationsForTrigger: vi.fn(),
   dispatchInboundToFlows: vi.fn(),
-  dispatchInboundToAiReply: vi.fn(),
   dispatchWebhookEvent: vi.fn(),
   state: {
     // Result the message upsert's .select() resolves to. A genuine insert
@@ -148,9 +147,6 @@ vi.mock('@/lib/automations/engine', () => ({
 vi.mock('@/lib/flows/engine', () => ({
   dispatchInboundToFlows: h.dispatchInboundToFlows,
 }))
-vi.mock('@/lib/ai/auto-reply', () => ({
-  dispatchInboundToAiReply: h.dispatchInboundToAiReply,
-}))
 vi.mock('@/lib/webhooks/deliver', () => ({
   dispatchWebhookEvent: h.dispatchWebhookEvent,
 }))
@@ -206,7 +202,6 @@ beforeEach(() => {
   h.state.automationStarted = 0
   h.state.automationCompleted = 0
   h.dispatchInboundToFlows.mockResolvedValue({ consumed: false })
-  h.dispatchInboundToAiReply.mockResolvedValue(undefined)
   h.dispatchWebhookEvent.mockResolvedValue(undefined)
   h.runAutomationsForTrigger.mockImplementation(() => {
     h.state.automationStarted++
@@ -247,7 +242,6 @@ describe('inbound webhook: idempotent insert (#367)', () => {
     expect(h.state.rpcCalls).toHaveLength(0)
     expect(h.dispatchInboundToFlows).not.toHaveBeenCalled()
     expect(h.runAutomationsForTrigger).not.toHaveBeenCalled()
-    expect(h.dispatchInboundToAiReply).not.toHaveBeenCalled()
     expect(h.dispatchWebhookEvent).not.toHaveBeenCalled()
   })
 })

@@ -12,8 +12,9 @@ The system connects WhatsApp Cloud (Meta) incoming messages to a backend that ca
 - On approval, backend uploads the PDF as media to Meta and sends it to the customer
 
 Optional components (present in repo but not enabled by default):
-- Multi-provider AI service for agent / bot replies (backend/ai_service.py)
 - Payment integration (planned, currently skipped)
+- LLM auto-reply was removed — this deployment has no provider API keys.
+  Solar WhatsApp replies run as the Flows template `solar_assistant`.
 
 
 ## Repo layout (important files)
@@ -106,56 +107,26 @@ Frontend (Next.js)
 12. Backend /invoices/send downloads PDF from Supabase, uploads media to Meta (media endpoint), and sends the document message to the customer. It updates invoice `status` → `sent` with `sent_at` and stores Meta response in `meta_message`.
 
 
-## Solar AI agent (deterministic WhatsApp solar consultation)
+## Solar Assistant (Flows template, no LLM)
 
-The Next.js frontend embeds a dedicated solar bot that answers residential rooftop-solar
-questions on WhatsApp (system sizing, cost, PM Surya Ghar subsidy + state top-ups, and the
-installation process) in short Hinglish/Hindi messages. All pricing / sizing / subsidy math is
-deterministic in code — the LLM never computes figures, it only formats them.
+WhatsApp solar consultation runs as the **Solar Assistant** flow template
+(`frontend/src/lib/flows/templates.ts`, slug `solar_assistant`). There is no
+provider API key and no LLM auto-reply on the webhook.
 
 ### Placement in the webhook pipeline
 
 `frontend/src/app/api/whatsapp/webhook/route.ts` runs, in order:
 
 1. flows engine (`dispatchInboundToFlows`)
-2. **solar agent** (`dispatchInboundToSolar` from `frontend/src/lib/solar/agent.ts`)
-3. generic AI auto-reply (`dispatchInboundToAiReply`)
-4. webhook dispatch events
+2. automations (`runAutomationsForTrigger`) — skipped when a flow consumed the message
+3. webhook dispatch events
 
-When the solar agent returns `{ handled: true }` (it replied, or deliberately stayed silent on a
-duplicate), the generic AI auto-reply is suppressed. The agent never throws into the webhook
-path: on any failure it returns `{ handled: false }` so the AI reply (or silence) takes over.
+Clone Flows → Solar Assistant and **Activate**. Keyword trigger: solar, rooftop,
+panel, subsidy, inverter, सौर, रूफटॉप, सब्सिडी, सूर्य.
 
-### Agent flow (`frontend/src/lib/solar/agent.ts`)
-
-1. Load the account's `solar_config` (defaults merged with DB row) and bail out when the bot is
-   disabled.
-2. Gate: engage only when the inbound message looks solar-related (`isSolarQuery`) or the thread
-   is already mid-solar-consultation and the customer just answered (`recentThread` +
-   `isSolarThread`).
-3. Read the contact's CRM profile (`loadSolarContactProfile`): state / bill custom fields.
-4. Merge facts across the recent customer messages + the current one (`extractFromHistory`):
-   bill amount (₹/rs/रु, ranges, "bill 2000"), monthly units ("250 unit"), and state
-   (`extractState`, normalized via `STATE_ALIASES` incl. "UP", "यूपी").
-5. Compute a recommendation (`buildRecommendation` → `computeRecommendation`): sized kW from
-   units ÷ generation factor, base cost = kW × ₹/kW, GST, PM Surya Ghar central slab
-   (₹30k/kW ×2, ₹18k/kW 3rd kW, cap ₹78k) + state top-up (admin overridable), net payable,
-   monthly savings and payback.
-6. Write newly learned facts back to the CRM contact as custom fields (`State`,
-   `Avg Monthly Bill`, `Monthly Units`) via `writeContactFacts`.
-7. Reply by intent: installation process (`formatProcess`), subsidy-only (`formatSubsidy`),
-   missing bill (`askForBill`), sizing-only when state unknown (`formatSizingOnly`), or full
-   quote (`formatQuote`). Duplicate-quote guard: identical recommendation already sent → stay
-   silent (still `handled: true`).
-8. Log the recommendation to `solar_recommendations` with a `config_snapshot`.
-
-### LLM context enrichment
-
-`frontend/src/lib/solar/context.ts` builds an authoritative `SOLAR CONSULTANT DATA` block
-(generated figures + "never recompute these" instruction) that is injected into the generic AI
-system prompt (`frontend/src/lib/ai/defaults.ts`) and the agent-draft route
-(`frontend/src/app/api/ai/draft/route.ts`) whenever the conversation is solar-related. The AI
-formats the numbers in a human reply but is told not to invent or recompute them.
+Customer path: welcome buttons → bill-slab list (under 1500 / 1500-2500 /
+2500-4000 / 4000+) → precomputed 2 / 3 / 5 / 7.5 kW Hinglish quote → process,
+subsidy, or agent handoff.
 
 ### Config & admin UI
 
