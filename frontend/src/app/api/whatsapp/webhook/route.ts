@@ -74,6 +74,24 @@ interface WhatsAppMessage {
   }>
 }
 
+/**
+ * Meta does not send the original content for unsupported messages. Keep all
+ * diagnostic fields it does provide so the inbox can tell the agent what was
+ * rejected instead of showing the same generic placeholder every time.
+ */
+export function formatUnsupportedMessage(message: Pick<WhatsAppMessage, 'type' | 'errors'>): string {
+  const metaError = message.errors?.[0]
+  const detail = metaError?.error_data?.details || metaError?.message || metaError?.title
+  const code = metaError?.code ? `code ${metaError.code}` : 'no error code'
+  const reason = detail || 'Meta did not provide a reason.'
+  return (
+    `[Unsupported message]\n` +
+    `Meta type: ${message.type}\n` +
+    `Reason (${code}): ${reason}\n` +
+    'Original content was not delivered by Meta.'
+  )
+}
+
 interface WhatsAppWebhookEntry {
   id: string
   changes: Array<{
@@ -1099,15 +1117,14 @@ async function parseMessageContent(
       // few newer WhatsApp client features. The customer DID send
       // something real; we just can't fetch its content, only Meta's
       // stated reason (if any) via `errors`.
-      const reason =
-        message.errors?.[0]?.error_data?.details ||
-        message.errors?.[0]?.title ||
-        message.errors?.[0]?.message
+      console.warn('[webhook] unsupported WhatsApp message:', {
+        message_id: message.id,
+        type: message.type,
+        errors: message.errors,
+      })
       return {
         ...empty,
-        contentText: reason
-          ? `[Unsupported message: ${reason}]`
-          : '[Unsupported message — likely a poll or view-once photo/video, which WhatsApp does not deliver to businesses]',
+        contentText: formatUnsupportedMessage(message),
       }
     }
 

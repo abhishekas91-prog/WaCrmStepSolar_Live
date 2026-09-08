@@ -161,7 +161,7 @@ vi.mock('@/lib/webhooks/deliver', () => ({
   dispatchWebhookEvent: h.dispatchWebhookEvent,
 }))
 
-import { isGreeting, POST } from './route'
+import { formatUnsupportedMessage, isGreeting, POST } from './route'
 
 function inboundRequest(messageOverride?: Record<string, unknown>) {
   const body = {
@@ -277,6 +277,19 @@ describe('greeting routing', () => {
         meta_message_id: 'wamid.BUTTON1',
       },
     }))
+  })
+})
+
+describe('unsupported WhatsApp messages', () => {
+  it('preserves Meta diagnostic fields instead of hiding the reason', () => {
+    expect(formatUnsupportedMessage({
+      type: 'unsupported',
+      errors: [{
+        code: 131051,
+        title: 'Message type is currently not supported.',
+        error_data: { details: 'This message may be a poll or view-once media.' },
+      }],
+    })).toContain('This message may be a poll or view-once media.')
   })
 })
 
