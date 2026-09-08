@@ -13,6 +13,8 @@ import {
   handleTemplateWebhookChange,
   isTemplateWebhookField,
 } from '@/lib/whatsapp/template-webhook'
+import { lookupCrmLead, formatCrmStatusReply } from '@/lib/solar/crm-lookup'
+import { engineSendText } from '@/lib/flows/meta-send'
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -870,6 +872,26 @@ async function processMessage(
         interactive_reply_id: interactiveReplyId ?? undefined,
       },
     }).catch((err) => console.error('[automations] dispatch failed:', err))
+  }
+
+  // Returning contact, not mid-flow, not their first-ever message →
+  // check StepSolar-CRM for an existing lead and reply with its live
+  // status instead of silently doing nothing (the lead-capture Flow
+  // only auto-starts on `first_inbound_message`, so this is the one
+  // case it doesn't cover). See lib/solar/crm-lookup.ts for why this
+  // is plain code rather than a Flow/Automation node.
+  if (!contactOutcome.wasCreated && !isFirstInboundMessage && !flowConsumed) {
+    const phone10 = senderPhone.slice(-10) // drop the 91 country code
+    const lead = await lookupCrmLead(phone10)
+    if (lead) {
+      await engineSendText({
+        accountId,
+        userId: configOwnerUserId,
+        conversationId: conversation.id,
+        contactId: contactRecord.id,
+        text: formatCrmStatusReply(lead),
+      }).catch((err) => console.error('[crm-lookup] status reply failed:', err))
+    }
   }
 
   // Solar quotes and AI auto-reply used to run here. Both are gone:
