@@ -123,17 +123,19 @@ export function formatCrmStatusReply(lead: CrmLead): string {
   const status = current?.status || 'Pending'
   const estimatedDays = current?.estimated_days ?? current?.duration_days
   const timing = estimatedDays
-    ? `Is phase mein lagbhag ${estimatedDays} din lag sakte hain.`
-    : 'Hamari team aapko next update aur expected timeline jald share karegi.'
+    ? `Expected timeline: approximately ${estimatedDays} days for this phase.`
+    : 'Our project coordinator will share the next update and expected timeline shortly.'
   const assigned = lead.assigned_name
-    ? `Assigned executive: ${lead.assigned_name}.\n`
+    ? `Project coordinator: ${lead.assigned_name}.\n`
     : ''
   return (
-    `Namaste ${lead.full_name}! Aapka lead already register hai (Code: ${lead.code}).\n` +
-    `Project phase: *${phase}* (${status}).\n` +
+    `Namaste ${lead.full_name} ji,\n\n` +
+    `Your solar project enquiry is registered successfully.\n` +
+    `Reference ID: *${lead.code}*\n` +
+    `Current project stage: *${phase}* (${status})\n` +
     timing + '\n' +
     assigned +
-    'Hamari team aapko next step ke baare mein jald contact karegi.'
+    '\nOur team will contact you shortly regarding the next steps. Thank you for choosing StepSolar Energy.'
   )
 }
 

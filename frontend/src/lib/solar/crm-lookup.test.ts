@@ -15,13 +15,15 @@ describe('formatCrmStatusReply', () => {
       ...baseLead,
       stages: [{ key: 'survey', label: 'Site survey', status: 'In Progress', estimated_days: 3 }],
     })
-    expect(reply).toContain('Project phase: *Site survey* (In Progress).')
-    expect(reply).toContain('lagbhag 3 din')
+    expect(reply).toContain('Your solar project enquiry is registered successfully.')
+    expect(reply).toContain('Reference ID: *SS-001*')
+    expect(reply).toContain('Current project stage: *Site survey* (In Progress)')
+    expect(reply).toContain('Expected timeline: approximately 3 days')
   })
 
   it('does not crash when CRM returns no stages', () => {
     const reply = formatCrmStatusReply({ ...baseLead, stages: [] })
-    expect(reply).toContain('Project phase: *Initial review* (Pending).')
-    expect(reply).toContain('next update')
+    expect(reply).toContain('Current project stage: *Initial review* (Pending)')
+    expect(reply).toContain('expected timeline shortly')
   })
 })
