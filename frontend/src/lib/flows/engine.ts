@@ -211,7 +211,11 @@ async function loadActiveRunForContact(
     return null;
   }
   const rows = (data as FlowRunRow[] | null) ?? [];
-  return rows[0] ?? null;
+  const run = rows[0] ?? null;
+  if (run && (!run.vars || typeof run.vars !== "object")) {
+    run.vars = {};
+  }
+  return run;
 }
 
 async function loadFlow(
@@ -318,7 +322,7 @@ async function isDuplicateInbound(
     .select("id", { count: "exact", head: true })
     .in("flow_run_id", runIds)
     .eq("event_type", "reply_received")
-    .filter("payload->>meta_message_id", "eq", metaMessageId);
+    .filter("payload.meta_message_id", "eq", metaMessageId);
   return (count ?? 0) > 0;
 }
 
@@ -480,14 +484,15 @@ async function executeHandoff(
  *     `subject_key` IS the tag UUID; the SELECT returns 1 row or 0.
  *   - `contact_field` → one of name/email/phone/company on `contacts`.
  */
-async function evaluateConditionNode(
+export async function evaluateConditionNode(
   db: AdminClient,
   run: FlowRunRow,
   cfg: ConditionNodeConfig,
 ): Promise<boolean> {
   let subjectValue: string | undefined;
   if (cfg.subject === "var") {
-    const v = run.vars[cfg.subject_key];
+    const vars = run.vars ?? {};
+    const v = vars[cfg.subject_key];
     subjectValue = typeof v === "string" ? v : v === undefined ? undefined : String(v);
   } else if (cfg.subject === "tag") {
     const { count } = await db
@@ -527,10 +532,11 @@ async function evaluateConditionNode(
  * ("Thanks {{vars.name}}, what's your email?"). Missing vars render as
  * empty string — the same behavior as the automations engine.
  */
-function interpolateVars(template: string, vars: Record<string, unknown>): string {
+export function interpolateVars(template: string, vars?: Record<string, unknown> | null): string {
   if (!template) return "";
+  const vMap = vars ?? {};
   return template.replace(/\{\{vars\.([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
-    const v = vars[key];
+    const v = vMap[key];
     return v === undefined || v === null ? "" : String(v);
   });
 }
@@ -564,6 +570,9 @@ async function advanceFromNodeKey(
   startNodeKey: string,
   nodes: Map<string, FlowNodeRow>,
 ): Promise<{ outcome: "advanced" | "completed" | "handed_off" }> {
+  if (!run.vars || typeof run.vars !== "object") {
+    run.vars = {};
+  }
   let currentKey: string | null = startNodeKey;
   // Defensive cap — if a flow has a cycle (which the validator
   // SHOULD catch but doesn't yet in v1), we bail rather than loop.
@@ -688,7 +697,9 @@ async function advanceFromNodeKey(
         run.current_node_key,
         node.node_key,
       );
-      if (!advanced) {
+      if (advanced) {
+        run.current_node_key = node.node_key;
+      } else {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
@@ -809,7 +820,9 @@ async function advanceFromNodeKey(
         run.current_node_key,
         node.node_key,
       );
-      if (!advanced) {
+      if (advanced) {
+        run.current_node_key = node.node_key;
+      } else {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
@@ -824,7 +837,9 @@ async function advanceFromNodeKey(
         run.current_node_key,
         node.node_key,
       );
-      if (!advanced) {
+      if (advanced) {
+        run.current_node_key = node.node_key;
+      } else {
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "lost_race_during_advance",
         });
@@ -969,6 +984,13 @@ async function handleReplyForActiveRun(
   message: ParsedInbound,
   nodes: Map<string, FlowNodeRow>,
 ): Promise<DispatchInboundResult> {
+  if (!run.vars || typeof run.vars !== "object") {
+    run.vars = {};
+  }
+  if (typeof run.reprompt_count !== "number") {
+    run.reprompt_count = 0;
+  }
+
   // Note: we intentionally do NOT persist the raw customer text. A
   // `collect_input` prompt that asks "what's your card number?" would
   // otherwise leave the PAN sitting in flow_run_events.payload forever,
@@ -1020,7 +1042,7 @@ async function handleReplyForActiveRun(
     const captured = message.text.trim();
     if (captured.length > 0 && cfg.var_key) {
       // Persist captured value + reset reprompt count atomically.
-      const newVars = { ...run.vars, [cfg.var_key]: captured };
+      const newVars = { ...(run.vars ?? {}), [cfg.var_key]: captured };
       const { error: capErr } = await db
         .from("flow_runs")
         .update({
@@ -1155,6 +1177,8 @@ async function startNewRun(
       conversation_id: input.conversationId,
       status: "active",
       current_node_key: flow.entry_node_id,
+      vars: {},
+      reprompt_count: 0,
     })
     .select("*")
     .maybeSingle();
@@ -1168,6 +1192,12 @@ async function startNewRun(
     return { consumed: false, outcome: "no_match" };
   }
   const run = inserted as FlowRunRow;
+  if (!run.vars || typeof run.vars !== "object") {
+    run.vars = {};
+  }
+  if (typeof run.reprompt_count !== "number") {
+    run.reprompt_count = 0;
+  }
   await logEvent(db, run.id, "started", flow.entry_node_id, {
     flow_id: flow.id,
     trigger_type: flow.trigger_type,

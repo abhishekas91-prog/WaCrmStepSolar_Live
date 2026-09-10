@@ -6,7 +6,11 @@ import {
   isSuspending,
   isTerminal,
   evaluateConditionPredicate,
+  evaluateConditionNode,
+  interpolateVars,
 } from "./engine";
+import { getFlowTemplate } from "./templates";
+import type { ConditionNodeConfig, FlowRunRow, SendButtonsNodeConfig } from "./types";
 
 describe("matchReplyId", () => {
   it("returns null for nodes without options", () => {
@@ -298,3 +302,134 @@ describe("evaluateConditionPredicate", () => {
     ).toBe(false);
   });
 });
+
+describe("interpolateVars", () => {
+  it("interpolates template with captured vars", () => {
+    const res = interpolateVars("Thanks {{vars.name}}, what's your email?", {
+      name: "Rishabh",
+    });
+    expect(res).toBe("Thanks Rishabh, what's your email?");
+  });
+
+  it("handles missing/undefined/null vars safely without throwing", () => {
+    expect(interpolateVars("Hello {{vars.name}}!", undefined)).toBe("Hello !");
+    expect(interpolateVars("Hello {{vars.name}}!", null)).toBe("Hello !");
+    expect(interpolateVars("Hello {{vars.name}}!", {})).toBe("Hello !");
+  });
+
+  it("handles multiple variables and numeric/string types", () => {
+    const res = interpolateVars(
+      "Customer: {{vars.name}}, Bill: ₹{{vars.bill}}, City: {{vars.city}}",
+      { name: "Rahul", bill: 2500, city: "Lucknow" },
+    );
+    expect(res).toBe("Customer: Rahul, Bill: ₹2500, City: Lucknow");
+  });
+});
+
+describe("evaluateConditionNode", () => {
+  it("does not throw TypeError when run.vars is undefined (reproduces Solar Assistant fix)", async () => {
+    const run = {
+      id: "run-1",
+      vars: undefined as unknown as Record<string, unknown>,
+    } as FlowRunRow;
+
+    const cfg: ConditionNodeConfig = {
+      subject: "var",
+      subject_key: "name",
+      operator: "present",
+      true_next: "ask_bill",
+      false_next: "ask_name",
+    };
+
+    // Should return false cleanly, rather than throwing TypeError: Cannot read properties of undefined
+    const res = await evaluateConditionNode({} as any, run, cfg);
+    expect(res).toBe(false);
+  });
+
+  it("evaluates true when subject var is present", async () => {
+    const run = {
+      id: "run-2",
+      vars: { name: "Rishabh" },
+    } as FlowRunRow;
+
+    const cfg: ConditionNodeConfig = {
+      subject: "var",
+      subject_key: "name",
+      operator: "present",
+      true_next: "ask_bill",
+      false_next: "ask_name",
+    };
+
+    const res = await evaluateConditionNode({} as any, run, cfg);
+    expect(res).toBe(true);
+  });
+
+  it("evaluates false when subject var is empty string", async () => {
+    const run = {
+      id: "run-3",
+      vars: { name: "" },
+    } as FlowRunRow;
+
+    const cfg: ConditionNodeConfig = {
+      subject: "var",
+      subject_key: "name",
+      operator: "present",
+      true_next: "ask_bill",
+      false_next: "ask_name",
+    };
+
+    const res = await evaluateConditionNode({} as any, run, cfg);
+    expect(res).toBe(false);
+  });
+});
+
+describe("solar_assistant flow routing after 'Quote chahiye'", () => {
+  it("transitions correctly from Quote chahiye to ask_name when lead details are missing", async () => {
+    const template = getFlowTemplate("solar_assistant");
+    expect(template).not.toBeNull();
+    if (!template) return;
+
+    // 1. Welcome node has 'want_quote' button -> routes to check_lead_info
+    const welcomeNode = template.nodes.find((n) => n.node_key === "welcome");
+    expect(welcomeNode).toBeDefined();
+    const cfg = welcomeNode!.config as SendButtonsNodeConfig;
+    const nextKey = matchReplyId(
+      { node_type: "send_buttons", config: cfg },
+      "want_quote",
+    );
+    expect(nextKey).toBe("check_lead_info");
+
+    // 2. check_lead_info condition node checks vars.name
+    const conditionNode = template.nodes.find(
+      (n) => n.node_key === "check_lead_info",
+    );
+    expect(conditionNode).toBeDefined();
+    const condCfg = conditionNode!.config as ConditionNodeConfig;
+
+    // Simulate run when customer hasn't provided name yet (run.vars is {} or undefined)
+    const run = { id: "test-run", vars: undefined } as unknown as FlowRunRow;
+    const hasName = await evaluateConditionNode({} as any, run, condCfg);
+    expect(hasName).toBe(false);
+
+    // Follows false_next -> ask_name
+    const resolvedNext = hasName ? condCfg.true_next : condCfg.false_next;
+    expect(resolvedNext).toBe("ask_name");
+
+    // 3. ask_name collects customer's name
+    const askNameNode = template.nodes.find((n) => n.node_key === "ask_name");
+    expect(askNameNode).toBeDefined();
+    expect(askNameNode!.node_type).toBe("collect_input");
+    expect((askNameNode!.config as any).var_key).toBe("name");
+    expect((askNameNode!.config as any).next_node_key).toBe("ask_email");
+
+    // 4. ask_email interpolates customer's name
+    const askEmailNode = template.nodes.find((n) => n.node_key === "ask_email");
+    expect(askEmailNode).toBeDefined();
+    const emailPrompt = interpolateVars(
+      (askEmailNode!.config as any).prompt_text,
+      { name: "Rahul" },
+    );
+    expect(emailPrompt).toContain("Thanks Rahul!");
+  });
+});
+

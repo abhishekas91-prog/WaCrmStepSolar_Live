@@ -248,7 +248,7 @@ export function buildMongoFilter(filters: Filter[]): Record<string, unknown> {
 }
 
 function buildSingleFilter(f: Filter): Record<string, unknown> {
-  const col = f.column;
+  const col = f.column.replace(/->>/g, ".").replace(/->/g, ".");
   switch (f.op) {
     case "eq":
       return { [col]: valueToMongo(f.value) };
