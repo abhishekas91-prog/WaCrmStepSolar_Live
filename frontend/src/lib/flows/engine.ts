@@ -615,6 +615,7 @@ async function advanceFromNodeKey(
           whatsapp_message_id,
         });
       } catch (err) {
+        console.error(`[flows] send_message failed for node ${node.node_key}, run ${run.id}:`, err);
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_text_failed",
           detail: err instanceof Error ? err.message : String(err),
@@ -646,6 +647,7 @@ async function advanceFromNodeKey(
           whatsapp_message_id,
         });
       } catch (err) {
+        console.error(`[flows] send_media failed for node ${node.node_key}, run ${run.id}:`, err);
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "send_media_failed",
           detail: err instanceof Error ? err.message : String(err),
@@ -684,6 +686,7 @@ async function advanceFromNodeKey(
           })
           .eq("id", run.id);
       } catch (err) {
+        console.error(`[flows] collect_input prompt failed for node ${node.node_key}, run ${run.id}:`, err);
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "collect_input_prompt_failed",
           detail: err instanceof Error ? err.message : String(err),
@@ -714,6 +717,7 @@ async function advanceFromNodeKey(
           ? "true"
           : "false";
       } catch (err) {
+        console.error(`[flows] condition evaluation failed for node ${node.node_key}, run ${run.id}:`, err);
         await logEvent(db, run.id, "error", node.node_key, {
           reason: "condition_evaluation_failed",
           detail: err instanceof Error ? err.message : String(err),
@@ -812,7 +816,17 @@ async function advanceFromNodeKey(
       continue;
     }
     if (node.node_type === "send_buttons") {
-      await sendButtonsAndSuspend(db, run, node);
+      try {
+        await sendButtonsAndSuspend(db, run, node);
+      } catch (err) {
+        console.error(`[flows] sendButtonsAndSuspend failed for node ${node.node_key}, run ${run.id}:`, err);
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_buttons_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_buttons_failed");
+        return { outcome: "completed" };
+      }
       // Persist the new current_node_key via optimistic UPDATE.
       const advanced = await advanceCurrentNodeKey(
         db,
@@ -830,7 +844,17 @@ async function advanceFromNodeKey(
       return { outcome: "advanced" };
     }
     if (node.node_type === "send_list") {
-      await sendListAndSuspend(db, run, node);
+      try {
+        await sendListAndSuspend(db, run, node);
+      } catch (err) {
+        console.error(`[flows] sendListAndSuspend failed for node ${node.node_key}, run ${run.id}:`, err);
+        await logEvent(db, run.id, "error", node.node_key, {
+          reason: "send_list_failed",
+          detail: err instanceof Error ? err.message : String(err),
+        });
+        await endRun(db, run.id, "failed", "send_list_failed");
+        return { outcome: "completed" };
+      }
       const advanced = await advanceCurrentNodeKey(
         db,
         run.id,
@@ -902,7 +926,27 @@ async function advanceCurrentNodeKey(
     console.error("[flows] advanceCurrentNodeKey error:", error.message);
     return false;
   }
-  return Array.isArray(data) && data.length > 0;
+  if (Array.isArray(data) && data.length > 0) return true;
+
+  // Fallback: If optimistic expectedOldKey check returned 0 rows (e.g. slight race),
+  // update directly by id if still active so the flow doesn't become desynchronized.
+  console.warn(
+    `[flows] advanceCurrentNodeKey optimistic check missed for run ${runId} (expected: ${expectedOldKey}), attempting fallback by active id`,
+  );
+  const { data: fallbackData, error: fbError } = await db
+    .from("flow_runs")
+    .update({
+      current_node_key: newKey,
+      last_advanced_at: new Date().toISOString(),
+    })
+    .eq("id", runId)
+    .eq("status", "active")
+    .select("id");
+  if (fbError) {
+    console.error("[flows] advanceCurrentNodeKey fallback error:", fbError.message);
+    return false;
+  }
+  return Array.isArray(fallbackData) && fallbackData.length > 0;
 }
 
 // ============================================================
@@ -937,24 +981,87 @@ export async function dispatchInboundToFlows(
           outcome: "duplicate_inbound_ignored",
         };
       }
-      // A repeated greeting is not an answer to the currently displayed
-      // button/list prompt. Consume it without re-sending the same prompt.
-      if (
+
+      const rawText = input.message.kind === "text" ? input.message.text.trim() : "";
+      const isGreeting =
         input.message.kind === "text" &&
-        /^(?:hi|hello|hey|hii|helo|namaste|नमस्ते|हेलो)(?:[\s,!?.]*)$/i.test(
-          input.message.text.trim(),
-        )
-      ) {
-        return {
-          consumed: true,
-          flow_run_id: activeRun.id,
-          outcome: "no_match",
-        };
+        /^(?:hi|hello|hey|hii|helo|namaste|नमस्ते|हेलो)(?:[\s,!?.]*)$/i.test(rawText);
+      const isExplicitRestart =
+        input.message.kind === "text" &&
+        /^(?:solar|start|restart|reset|flow|shuru)(?:[\s,!?.]*)$/i.test(rawText);
+
+      const lastActiveTime = activeRun.last_advanced_at
+        ? new Date(activeRun.last_advanced_at).getTime()
+        : activeRun.started_at
+          ? new Date(activeRun.started_at).getTime()
+          : 0;
+      const isStale = lastActiveTime > 0 && Date.now() - lastActiveTime > 15 * 60 * 1000;
+
+      if (isExplicitRestart || isStale) {
+        await endRun(
+          db,
+          activeRun.id,
+          "completed",
+          isExplicitRestart ? "restarted_by_user" : "stale_run_cleared",
+        );
+        // Fall through to findEntryFlow below so the customer starts fresh!
+      } else if (isGreeting) {
+        // Do NOT swallow the greeting! Re-prompt customer based on active node.
+        const nodes = await loadAllNodes(db, activeRun.flow_id);
+        const currentNode = activeRun.current_node_key
+          ? nodes.get(activeRun.current_node_key)
+          : null;
+        if (currentNode) {
+          if (currentNode.node_type === "send_buttons") {
+            try {
+              await sendButtonsAndSuspend(db, activeRun, currentNode);
+              return {
+                consumed: true,
+                flow_run_id: activeRun.id,
+                outcome: "fallback_fired",
+              };
+            } catch (err) {
+              console.error("[flows] greeting reprompt sendButtons failed:", err);
+            }
+          } else if (currentNode.node_type === "send_list") {
+            try {
+              await sendListAndSuspend(db, activeRun, currentNode);
+              return {
+                consumed: true,
+                flow_run_id: activeRun.id,
+                outcome: "fallback_fired",
+              };
+            } catch (err) {
+              console.error("[flows] greeting reprompt sendList failed:", err);
+            }
+          } else if (currentNode.node_type === "collect_input") {
+            const cfg = currentNode.config as unknown as CollectInputNodeConfig;
+            try {
+              await engineSendText({
+                accountId: activeRun.account_id,
+                userId: activeRun.user_id,
+                conversationId: activeRun.conversation_id!,
+                contactId: activeRun.contact_id!,
+                text: interpolateVars(cfg.prompt_text, activeRun.vars),
+              });
+              return {
+                consumed: true,
+                flow_run_id: activeRun.id,
+                outcome: "fallback_fired",
+              };
+            } catch (err) {
+              console.error("[flows] greeting reprompt collectInput failed:", err);
+            }
+          }
+        }
+        // If current node could not re-prompt, clear the run and fall through to entry
+        await endRun(db, activeRun.id, "completed", "invalid_node_on_greeting");
+      } else {
+        // One SELECT for the whole flow's nodes — advance loop is now
+        // in-memory. See loadAllNodes.
+        const nodes = await loadAllNodes(db, activeRun.flow_id);
+        return handleReplyForActiveRun(db, activeRun, input.message, nodes);
       }
-      // One SELECT for the whole flow's nodes — advance loop is now
-      // in-memory. See loadAllNodes.
-      const nodes = await loadAllNodes(db, activeRun.flow_id);
-      return handleReplyForActiveRun(db, activeRun, input.message, nodes);
     }
 
     // No active run → look for a flow whose entry trigger matches.
@@ -1141,6 +1248,17 @@ async function handleReplyForActiveRun(
         .update({ status: "pending", updated_at: new Date().toISOString() })
         .eq("id", run.conversation_id);
     }
+    try {
+      await engineSendText({
+        accountId: run.account_id,
+        userId: run.user_id,
+        conversationId: run.conversation_id!,
+        contactId: run.contact_id!,
+        text: "Aapke sawaal ke liye hamare solar expert se connect kar rahe hain. Hamari team jald hi aapse yahan sampark karegi.",
+      });
+    } catch (err) {
+      console.error(`[flows] handoff notification send failed for run ${run.id}:`, err);
+    }
     await logEvent(db, run.id, "handoff", run.current_node_key, {
       reason: "fallback_exhausted",
     });
@@ -1148,6 +1266,17 @@ async function handleReplyForActiveRun(
     return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
   }
   // action.type === 'end'
+  try {
+    await engineSendText({
+      accountId: run.account_id,
+      userId: run.user_id,
+      conversationId: run.conversation_id!,
+      contactId: run.contact_id!,
+      text: "Dhanyawad! Agar aapko naya quote ya jaankari chahiye, toh dobara 'Solar' ya 'Hi' likhkar bhejein.",
+    });
+  } catch (err) {
+    console.error(`[flows] end notification send failed for run ${run.id}:`, err);
+  }
   await endRun(db, run.id, "completed", "fallback_exhausted_end");
   return { consumed: true, flow_run_id: run.id, outcome: "completed" };
 }
@@ -1161,6 +1290,7 @@ async function startNewRun(
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as
   // consumed:true (the parallel webhook handles it).
+  const nowIso = new Date().toISOString();
   const { data: inserted, error: insErr } = await db
     .from("flow_runs")
     .insert({
@@ -1179,13 +1309,64 @@ async function startNewRun(
       current_node_key: flow.entry_node_id,
       vars: {},
       reprompt_count: 0,
+      started_at: nowIso,
+      last_advanced_at: nowIso,
     })
     .select("*")
     .maybeSingle();
   if (insErr) {
-    // 23505 = unique_violation → another webhook is starting the run.
+    // 23505 = unique_violation → another webhook is starting the run,
+    // or a prior run was left active. Clear stale run and retry once so
+    // user's fresh message is never ignored!
     const msg = insErr.message ?? "";
     if (msg.includes("23505") || msg.includes("duplicate key")) {
+      const existing = await loadActiveRunForContact(
+        db,
+        flow.account_id,
+        input.contactId,
+      );
+      if (existing) {
+        await endRun(db, existing.id, "completed", "auto_cleared_on_restart");
+        const retryIso = new Date().toISOString();
+        const { data: retryInserted, error: retryErr } = await db
+          .from("flow_runs")
+          .insert({
+            flow_id: flow.id,
+            account_id: flow.account_id,
+            user_id: flow.user_id,
+            contact_id: input.contactId,
+            conversation_id: input.conversationId,
+            status: "active",
+            current_node_key: flow.entry_node_id,
+            vars: {},
+            reprompt_count: 0,
+            started_at: retryIso,
+            last_advanced_at: retryIso,
+          })
+          .select("*")
+          .maybeSingle();
+        if (retryInserted && !retryErr) {
+          const run = retryInserted as FlowRunRow;
+          if (!run.vars || typeof run.vars !== "object") run.vars = {};
+          if (typeof run.reprompt_count !== "number") run.reprompt_count = 0;
+          await logEvent(db, run.id, "started", flow.entry_node_id, {
+            flow_id: flow.id,
+            trigger_type: flow.trigger_type,
+            meta_message_id: input.message.meta_message_id,
+          });
+          const outcome = await advanceFromNodeKey(
+            db,
+            run,
+            flow.entry_node_id!,
+            nodes,
+          );
+          return {
+            consumed: true,
+            flow_run_id: run.id,
+            outcome: outcome.outcome === "advanced" ? "started" : outcome.outcome,
+          };
+        }
+      }
       return { consumed: true, outcome: "duplicate_inbound_ignored" };
     }
     console.error("[flows] startNewRun insert error:", insErr.message);

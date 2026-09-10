@@ -430,6 +430,80 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
       { name: "Rahul" },
     );
     expect(emailPrompt).toContain("Thanks Rahul!");
+
+    // 5. Complete chain through ask_city -> ask_pincode -> ask_bill -> create_lead_3kw -> quote_3kw
+    const askCityNode = template.nodes.find((n) => n.node_key === "ask_city");
+    expect(askCityNode).toBeDefined();
+    expect(askCityNode!.node_type).toBe("collect_input");
+    expect((askCityNode!.config as any).next_node_key).toBe("ask_pincode");
+
+    const askPincodeNode = template.nodes.find((n) => n.node_key === "ask_pincode");
+    expect(askPincodeNode).toBeDefined();
+    expect(askPincodeNode!.node_type).toBe("collect_input");
+    expect((askPincodeNode!.config as any).next_node_key).toBe("ask_bill");
+
+    const askBillNode = template.nodes.find((n) => n.node_key === "ask_bill");
+    expect(askBillNode).toBeDefined();
+    expect(askBillNode!.node_type).toBe("send_list");
+    const billMatch = matchReplyId(
+      { node_type: "send_list", config: askBillNode!.config as any },
+      "bill_1500_2500",
+    );
+    expect(billMatch).toBe("create_lead_3kw");
+
+    const createLeadNode = template.nodes.find((n) => n.node_key === "create_lead_3kw");
+    expect(createLeadNode).toBeDefined();
+    expect(createLeadNode!.node_type).toBe("create_lead");
+    expect((createLeadNode!.config as any).next_node_key).toBe("quote_3kw");
+
+    const quoteNode = template.nodes.find((n) => n.node_key === "quote_3kw");
+    expect(quoteNode).toBeDefined();
+    expect(quoteNode!.node_type).toBe("send_message");
+    const quoteText = interpolateVars((quoteNode!.config as any).text, { name: "Rahul" });
+    expect(quoteText).toContain("3 kW On-Grid");
+  });
+
+  it("skips lead questions directly to ask_bill if name is already present", async () => {
+    const template = getFlowTemplate("solar_assistant");
+    expect(template).not.toBeNull();
+    const conditionNode = template!.nodes.find((n) => n.node_key === "check_lead_info");
+    expect(conditionNode).toBeDefined();
+
+    const runWithName = { id: "run-with-name", vars: { name: "Abhishek" } } as unknown as FlowRunRow;
+    const hasName = await evaluateConditionNode({} as any, runWithName, conditionNode!.config as ConditionNodeConfig);
+    expect(hasName).toBe(true);
+
+    const condCfg = conditionNode!.config as ConditionNodeConfig;
+    const nextKey = hasName ? condCfg.true_next : condCfg.false_next;
+    expect(nextKey).toBe("ask_bill");
+  });
+});
+
+describe("inbound greeting and restart patterns", () => {
+  const isGreeting = (text: string) =>
+    /^(?:hi|hello|hey|hii|helo|namaste|नमस्ते|हेलो)(?:[\s,!?.]*)$/i.test(text.trim());
+  const isExplicitRestart = (text: string) =>
+    /^(?:solar|start|restart|reset|flow|shuru)(?:[\s,!?.]*)$/i.test(text.trim());
+
+  it("identifies greetings reliably across English and Hindi", () => {
+    expect(isGreeting("hi")).toBe(true);
+    expect(isGreeting("Hi")).toBe(true);
+    expect(isGreeting("Hello!")).toBe(true);
+    expect(isGreeting("Namaste")).toBe(true);
+    expect(isGreeting("नमस्ते")).toBe(true);
+    expect(isGreeting("हेलो ")).toBe(true);
+    expect(isGreeting("hii...")).toBe(true);
+    expect(isGreeting("Random text")).toBe(false);
+  });
+
+  it("identifies restart commands to unblock stuck runs", () => {
+    expect(isExplicitRestart("solar")).toBe(true);
+    expect(isExplicitRestart("Solar")).toBe(true);
+    expect(isExplicitRestart("start")).toBe(true);
+    expect(isExplicitRestart("restart")).toBe(true);
+    expect(isExplicitRestart("reset")).toBe(true);
+    expect(isExplicitRestart("shuru")).toBe(true);
+    expect(isExplicitRestart("quote")).toBe(false);
   });
 });
 

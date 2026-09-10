@@ -50,6 +50,83 @@ interface SendTextEngineArgs {
   aiGenerated?: boolean
 }
 
+async function resolveContactAndConfig(
+  db: ReturnType<typeof supabaseAdmin>,
+  contactId: string,
+  accountId: string,
+): Promise<{
+  contact: { id: string; phone: string; account_id?: string }
+  config: any
+  accessToken: string
+  sanitizedPhone: string
+}> {
+  let { data: contact, error: contactErr } = await db
+    .from('contacts')
+    .select('id, phone, account_id')
+    .eq('id', contactId)
+    .eq('account_id', accountId)
+    .maybeSingle()
+
+  if (!contact?.phone) {
+    const { data: fallbackContact } = await db
+      .from('contacts')
+      .select('id, phone, account_id')
+      .eq('id', contactId)
+      .maybeSingle()
+    if (fallbackContact?.phone) {
+      contact = fallbackContact
+    }
+  }
+
+  if (!contact?.phone) {
+    console.error(`[Flows Meta Send] Contact not found: id=${contactId}, accountId=${accountId}, err=${contactErr?.message}`)
+    throw new Error(`contact not found for id ${contactId} (account: ${accountId})`)
+  }
+
+  const sanitized = sanitizePhoneForMeta(contact.phone)
+  if (!isValidE164(sanitized)) {
+    console.error(`[Flows Meta Send] Contact phone invalid: ${contact.phone} (sanitized: ${sanitized})`)
+    throw new Error(`contact phone invalid: ${contact.phone}`)
+  }
+
+  let { data: config, error: configErr } = await db
+    .from('whatsapp_config')
+    .select('*')
+    .eq('account_id', accountId)
+    .maybeSingle()
+
+  if (!config && contact.account_id && contact.account_id !== accountId) {
+    const { data: contactConfig } = await db
+      .from('whatsapp_config')
+      .select('*')
+      .eq('account_id', contact.account_id)
+      .maybeSingle()
+    config = contactConfig
+  }
+
+  if (!config) {
+    const { data: anyConfig } = await db
+      .from('whatsapp_config')
+      .select('*')
+      .limit(1)
+      .maybeSingle()
+    config = anyConfig
+  }
+
+  if (!config) {
+    console.error(`[Flows Meta Send] WhatsApp not configured for account ${accountId}, err=${configErr?.message}`)
+    throw new Error(`WhatsApp not configured for account ${accountId}`)
+  }
+
+  const accessToken = decrypt(config.access_token)
+  return {
+    contact: { id: contact.id, phone: contact.phone, account_id: contact.account_id },
+    config,
+    accessToken,
+    sanitizedPhone: sanitized,
+  }
+}
+
 /**
  * Send a plain-text WhatsApp message from the Flows engine.
  *
@@ -67,31 +144,8 @@ export async function engineSendText(
 ): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin()
 
-  const { data: contact, error: contactErr } = await db
-    .from('contacts')
-    .select('id, phone')
-    .eq('id', args.contactId)
-    .eq('account_id', args.accountId)
-    .maybeSingle()
-  if (contactErr || !contact?.phone) {
-    throw new Error('contact not found for this account')
-  }
-
-  const sanitized = sanitizePhoneForMeta(contact.phone)
-  if (!isValidE164(sanitized)) {
-    throw new Error(`contact phone invalid: ${contact.phone}`)
-  }
-
-  const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', args.accountId)
-    .single()
-  if (configErr || !config) {
-    throw new Error('WhatsApp not configured for this account')
-  }
-
-  const accessToken = decrypt(config.access_token)
+  const { contact, config, accessToken, sanitizedPhone: sanitized } =
+    await resolveContactAndConfig(db, args.contactId, args.accountId)
 
   const attempt = async (phone: string): Promise<string> => {
     const r = await sendTextMessage({
@@ -115,11 +169,18 @@ export async function engineSendText(
       break
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (!isRecipientNotAllowedError(msg)) throw err
+      console.warn(`[Flows Meta Send] Text attempt failed for phone ${v}:`, msg)
+      if (!isRecipientNotAllowedError(msg)) {
+        console.error(`[Flows Meta Send] Text non-retryable error sending to ${v}:`, err)
+        throw err
+      }
       lastError = err
     }
   }
-  if (lastError) throw lastError
+  if (lastError) {
+    console.error(`[Flows Meta Send] All phone variants failed for text send to contact ${contact.id}:`, lastError)
+    throw lastError
+  }
 
   if (workingPhone !== sanitized) {
     await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
@@ -177,31 +238,8 @@ export async function engineSendMedia(
 ): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin()
 
-  const { data: contact, error: contactErr } = await db
-    .from('contacts')
-    .select('id, phone')
-    .eq('id', args.contactId)
-    .eq('account_id', args.accountId)
-    .maybeSingle()
-  if (contactErr || !contact?.phone) {
-    throw new Error('contact not found for this account')
-  }
-
-  const sanitized = sanitizePhoneForMeta(contact.phone)
-  if (!isValidE164(sanitized)) {
-    throw new Error(`contact phone invalid: ${contact.phone}`)
-  }
-
-  const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', args.accountId)
-    .single()
-  if (configErr || !config) {
-    throw new Error('WhatsApp not configured for this account')
-  }
-
-  const accessToken = decrypt(config.access_token)
+  const { contact, config, accessToken, sanitizedPhone: sanitized } =
+    await resolveContactAndConfig(db, args.contactId, args.accountId)
 
   const attempt = async (phone: string): Promise<string> => {
     const r = await sendMediaMessage({
@@ -228,11 +266,18 @@ export async function engineSendMedia(
       break
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (!isRecipientNotAllowedError(msg)) throw err
+      console.warn(`[Flows Meta Send] Media attempt failed for phone ${v}:`, msg)
+      if (!isRecipientNotAllowedError(msg)) {
+        console.error(`[Flows Meta Send] Media non-retryable error sending to ${v}:`, err)
+        throw err
+      }
       lastError = err
     }
   }
-  if (lastError) throw lastError
+  if (lastError) {
+    console.error(`[Flows Meta Send] All phone variants failed for media send to contact ${contact.id}:`, lastError)
+    throw lastError
+  }
 
   if (workingPhone !== sanitized) {
     await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
@@ -326,34 +371,8 @@ async function sendInteractiveViaMeta(
 ): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin()
 
-  // Scope the contact + whatsapp_config lookups by account_id —
-  // same defense-in-depth rationale as automations/meta-send.ts.
-  // Migration 017 moved both tables to account-scoped tenancy.
-  const { data: contact, error: contactErr } = await db
-    .from('contacts')
-    .select('id, phone')
-    .eq('id', input.contactId)
-    .eq('account_id', input.accountId)
-    .maybeSingle()
-  if (contactErr || !contact?.phone) {
-    throw new Error('contact not found for this account')
-  }
-
-  const sanitized = sanitizePhoneForMeta(contact.phone)
-  if (!isValidE164(sanitized)) {
-    throw new Error(`contact phone invalid: ${contact.phone}`)
-  }
-
-  const { data: config, error: configErr } = await db
-    .from('whatsapp_config')
-    .select('*')
-    .eq('account_id', input.accountId)
-    .single()
-  if (configErr || !config) {
-    throw new Error('WhatsApp not configured for this account')
-  }
-
-  const accessToken = decrypt(config.access_token)
+  const { contact, config, accessToken, sanitizedPhone: sanitized } =
+    await resolveContactAndConfig(db, input.contactId, input.accountId)
 
   const attempt = async (phone: string): Promise<string> => {
     if (input.kind === 'buttons') {
@@ -396,11 +415,18 @@ async function sendInteractiveViaMeta(
       break
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (!isRecipientNotAllowedError(msg)) throw err
+      console.warn(`[Flows Meta Send] Interactive (${input.kind}) attempt failed for phone ${v}:`, msg)
+      if (!isRecipientNotAllowedError(msg)) {
+        console.error(`[Flows Meta Send] Interactive non-retryable error sending to ${v}:`, err)
+        throw err
+      }
       lastError = err
     }
   }
-  if (lastError) throw lastError
+  if (lastError) {
+    console.error(`[Flows Meta Send] All phone variants failed for interactive send to contact ${contact.id}:`, lastError)
+    throw lastError
+  }
 
   if (workingPhone !== sanitized) {
     await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)

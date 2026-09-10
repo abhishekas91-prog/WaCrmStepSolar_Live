@@ -24,7 +24,7 @@ describe("proxy — auth redirects and guards", () => {
       new NextRequest("https://app.test/login", { headers: { cookie: `${AUTH_COOKIE}=${cookie}` } }),
     );
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toContain("/dashboard");
+    expect(res.headers.get("location")).toContain("/inbox");
   });
 
   it("redirects a signed-in user with an invite token to /join/<token>", async () => {
