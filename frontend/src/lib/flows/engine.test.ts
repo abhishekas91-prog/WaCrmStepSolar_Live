@@ -350,7 +350,7 @@ describe("evaluateConditionNode", () => {
     const run = {
       id: "run-2",
       vars: { name: "Rishabh" },
-    } as FlowRunRow;
+    } as unknown as FlowRunRow;
 
     const cfg: ConditionNodeConfig = {
       subject: "var",
@@ -368,7 +368,7 @@ describe("evaluateConditionNode", () => {
     const run = {
       id: "run-3",
       vars: { name: "" },
-    } as FlowRunRow;
+    } as unknown as FlowRunRow;
 
     const cfg: ConditionNodeConfig = {
       subject: "var",
@@ -394,7 +394,7 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
     expect(welcomeNode).toBeDefined();
     const cfg = welcomeNode!.config as SendButtonsNodeConfig;
     const nextKey = matchReplyId(
-      { node_type: "send_buttons", config: cfg },
+      { node_type: "send_buttons", config: cfg as any },
       "want_quote",
     );
     expect(nextKey).toBe("check_lead_info");

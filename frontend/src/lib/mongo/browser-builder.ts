@@ -10,12 +10,13 @@
 
 export type FilterOp =
   | "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "is" | "like"
-  | "ilike" | "contains" | "match" | "or";
+  | "ilike" | "contains" | "match" | "or" | "not";
 
 export interface Filter {
   op: FilterOp;
   column: string;
   value: unknown;
+  subOp?: string;
 }
 
 export interface Order {
@@ -170,7 +171,15 @@ export class BrowserQueryBuilder {
     this.state.filters.push({ op: "match", column: "", value: obj });
     return this;
   }
+  not(column: string, operator: string, value: unknown): this {
+    this.state.filters.push({ op: "not", column, value, subOp: operator });
+    return this;
+  }
   filter(column: string, operator: string, value: unknown): this {
+    if (operator.startsWith("not.")) {
+      const subOp = operator.slice(4);
+      return this.not(column, subOp, value);
+    }
     this.state.filters.push({ op: operator as FilterOp, column, value });
     return this;
   }

@@ -62,12 +62,13 @@ function makeError(err: unknown): PostgrestErrorLike {
 
 export type FilterOp =
   | "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "in" | "is" | "like"
-  | "ilike" | "contains" | "match" | "or";
+  | "ilike" | "contains" | "match" | "or" | "not";
 
 export interface Filter {
   op: FilterOp;
   column: string;
   value: unknown;
+  subOp?: string;
 }
 
 export interface Order {
@@ -247,7 +248,7 @@ export function buildMongoFilter(filters: Filter[]): Record<string, unknown> {
   return { $and: conds };
 }
 
-function buildSingleFilter(f: Filter): Record<string, unknown> {
+export function buildSingleFilter(f: Filter): Record<string, unknown> {
   const col = f.column.replace(/->>/g, ".").replace(/->/g, ".");
   switch (f.op) {
     case "eq":
@@ -296,6 +297,46 @@ function buildSingleFilter(f: Filter): Record<string, unknown> {
       const nodes = parseOrExpression(expr);
       const mongo = nodesToMongo(nodes);
       return Array.isArray(mongo) && mongo.length === 1 ? mongo[0] : { $or: mongo };
+    }
+    case "not": {
+      const subOp = f.subOp || "eq";
+      switch (subOp) {
+        case "is":
+          if (f.value === null || f.value === "null") return { [col]: { $ne: null } };
+          if (f.value === true || f.value === "true") return { [col]: { $ne: true } };
+          if (f.value === false || f.value === "false") return { [col]: { $ne: false } };
+          return { [col]: { $ne: valueToMongo(f.value) } };
+        case "eq":
+          return { [col]: { $ne: valueToMongo(f.value) } };
+        case "neq":
+          return { [col]: valueToMongo(f.value) };
+        case "gt":
+          return { [col]: { $lte: valueToMongo(f.value) } };
+        case "gte":
+          return { [col]: { $lt: valueToMongo(f.value) } };
+        case "lt":
+          return { [col]: { $gte: valueToMongo(f.value) } };
+        case "lte":
+          return { [col]: { $gt: valueToMongo(f.value) } };
+        case "in": {
+          const vals = Array.isArray(f.value) ? f.value : [f.value];
+          return { [col]: { $nin: vals } };
+        }
+        case "like": {
+          const pattern = String(f.value);
+          const re = wildcardToRegex(pattern.replace(/%/g, "*"));
+          return { [col]: { $not: re } };
+        }
+        case "ilike": {
+          const pattern = String(f.value);
+          const re = wildcardToRegex(pattern.replace(/%/g, "*"));
+          return { [col]: { $not: new RegExp(re.source, "i") } };
+        }
+        default: {
+          const inner = buildSingleFilter({ op: subOp as FilterOp, column: f.column, value: f.value });
+          return { $nor: [inner] };
+        }
+      }
     }
     default:
       return { [col]: valueToMongo(f.value) };
@@ -1211,7 +1252,15 @@ export class MongoQueryBuilder {
     this.state.filters.push({ op: "match", column: "", value: obj });
     return this;
   }
+  not(column: string, operator: string, value: unknown): this {
+    this.state.filters.push({ op: "not", column, value, subOp: operator });
+    return this;
+  }
   filter(column: string, operator: string, value: unknown): this {
+    if (operator.startsWith("not.")) {
+      const subOp = operator.slice(4);
+      return this.not(column, subOp, value);
+    }
     const op = operator as FilterOp;
     if (op === "ilike") return this.ilike(column, String(value));
     if (op === "like") return this.like(column, String(value));
