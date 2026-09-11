@@ -758,6 +758,25 @@ const SOLAR_QUOTE_FLOW: FlowTemplate = {
         ],
       } as SendButtonsNodeConfig,
     },
+    {
+      node_key: "after_info",
+      node_type: "send_buttons",
+      config: {
+        text: "Aur kuch chahiye?",
+        buttons: [
+          {
+            reply_id: "info_agent",
+            title: "Agent se baat",
+            next_node_key: "handoff",
+          },
+          {
+            reply_id: "info_done",
+            title: "Theek hai",
+            next_node_key: "end",
+          },
+        ],
+      } as SendButtonsNodeConfig,
+    },
   ],
 };
 
@@ -775,4 +794,12 @@ export function getFlowTemplate(slug: string): FlowTemplate | null {
 
 export function listFlowTemplates(): FlowTemplate[] {
   return Object.values(TEMPLATES);
+}
+
+export function findTemplateNode(nodeKey: string): FlowTemplateNode | null {
+  for (const t of Object.values(TEMPLATES)) {
+    const found = t.nodes.find((n) => n.node_key === nodeKey);
+    if (found) return found;
+  }
+  return null;
 }

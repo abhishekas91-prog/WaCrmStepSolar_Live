@@ -43,7 +43,7 @@ import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import { createCrmLead } from "@/lib/solar/crm-lookup";
-import { getFlowTemplate } from "./templates";
+import { getFlowTemplate, findTemplateNode } from "./templates";
 import {
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
@@ -77,24 +77,40 @@ export function matchReplyId(
   reply_id: string,
   reply_title?: string,
 ): string | null {
+  const normId = (reply_id ?? "").trim().toLowerCase();
+  const normTitle = (reply_title ?? "").trim().toLowerCase();
+  if (!normId && !normTitle) return null;
+
   if (node.node_type === "send_buttons") {
     const cfg = node.config as unknown as SendButtonsNodeConfig;
-    const hit = cfg.buttons?.find(
-      (b) =>
-        b.reply_id === reply_id ||
-        (!!reply_title && b.title.trim().toLowerCase() === reply_title.trim().toLowerCase()),
-    );
-    return hit?.next_node_key ?? null;
+    for (const b of cfg.buttons ?? []) {
+      const bId = (b.reply_id ?? "").trim().toLowerCase();
+      const bTitle = (b.title ?? "").trim().toLowerCase();
+      if (
+        (normId && bId === normId) ||
+        (normTitle && (bTitle === normTitle || bTitle.includes(normTitle) || normTitle.includes(bTitle))) ||
+        (normId && (bTitle === normId || bTitle.includes(normId) || normId.includes(bTitle)))
+      ) {
+        return b.next_node_key;
+      }
+    }
+    return null;
   }
   if (node.node_type === "send_list") {
     const cfg = node.config as unknown as SendListNodeConfig;
     for (const section of cfg.sections ?? []) {
-      const hit = section.rows?.find(
-        (r) =>
-          r.reply_id === reply_id ||
-          (!!reply_title && r.title.trim().toLowerCase() === reply_title.trim().toLowerCase()),
-      );
-      if (hit) return hit.next_node_key;
+      for (const r of section.rows ?? []) {
+        const rId = (r.reply_id ?? "").trim().toLowerCase();
+        const rTitle = (r.title ?? "").trim().toLowerCase();
+        const rDesc = (r.description ?? "").trim().toLowerCase();
+        if (
+          (normId && rId === normId) ||
+          (normTitle && (rTitle === normTitle || rTitle.includes(normTitle) || normTitle.includes(rTitle))) ||
+          (normId && (rTitle === normId || rTitle.includes(normId) || normId.includes(rTitle) || (rDesc && rDesc.includes(normId))))
+        ) {
+          return r.next_node_key;
+        }
+      }
     }
     return null;
   }
@@ -235,6 +251,113 @@ async function loadFlow(
   return (data as FlowRow | null) ?? null;
 }
 
+const LEGACY_SOLAR_FALLBACK_NODES: Array<{
+  node_key: string;
+  node_type: string;
+  config: Record<string, unknown>;
+}> = [
+  {
+    node_key: "create_lead_2kw",
+    node_type: "create_lead",
+    config: {
+      full_name: "{{vars.name}}",
+      email: "{{vars.email}}",
+      state: "Uttar Pradesh",
+      city: "{{vars.city}}",
+      pincode: "{{vars.pincode}}",
+      property_type: "Residential",
+      monthly_bill: "1500",
+      roof_type: "RCC",
+      timeline: "Not decided",
+      source: "whatsapp_flow",
+      next_node_key: "quote_2kw",
+    },
+  },
+  {
+    node_key: "create_lead_3kw",
+    node_type: "create_lead",
+    config: {
+      full_name: "{{vars.name}}",
+      email: "{{vars.email}}",
+      state: "Uttar Pradesh",
+      city: "{{vars.city}}",
+      pincode: "{{vars.pincode}}",
+      property_type: "Residential",
+      monthly_bill: "2500",
+      roof_type: "RCC",
+      timeline: "Not decided",
+      source: "whatsapp_flow",
+      next_node_key: "quote_3kw",
+    },
+  },
+  {
+    node_key: "create_lead_5kw",
+    node_type: "create_lead",
+    config: {
+      full_name: "{{vars.name}}",
+      email: "{{vars.email}}",
+      state: "Uttar Pradesh",
+      city: "{{vars.city}}",
+      pincode: "{{vars.pincode}}",
+      property_type: "Residential",
+      monthly_bill: "4000",
+      roof_type: "RCC",
+      timeline: "Not decided",
+      source: "whatsapp_flow",
+      next_node_key: "quote_5kw",
+    },
+  },
+  {
+    node_key: "create_lead_75kw",
+    node_type: "create_lead",
+    config: {
+      full_name: "{{vars.name}}",
+      email: "{{vars.email}}",
+      state: "Uttar Pradesh",
+      city: "{{vars.city}}",
+      pincode: "{{vars.pincode}}",
+      property_type: "Residential",
+      monthly_bill: "5000",
+      roof_type: "RCC",
+      timeline: "Not decided",
+      source: "whatsapp_flow",
+      next_node_key: "quote_75kw",
+    },
+  },
+  {
+    node_key: "quote_2kw",
+    node_type: "send_message",
+    config: {
+      text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 2 kW On-Grid*",
+      next_node_key: "after_quote",
+    },
+  },
+  {
+    node_key: "quote_3kw",
+    node_type: "send_message",
+    config: {
+      text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 3 kW On-Grid*",
+      next_node_key: "after_quote",
+    },
+  },
+  {
+    node_key: "quote_5kw",
+    node_type: "send_message",
+    config: {
+      text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 5 kW On-Grid*",
+      next_node_key: "after_quote",
+    },
+  },
+  {
+    node_key: "quote_75kw",
+    node_type: "send_message",
+    config: {
+      text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 7.5 kW On-Grid*",
+      next_node_key: "after_quote",
+    },
+  },
+];
+
 /**
  * Load every node of a flow in one round trip and key them by
  * `node_key`. The advance loop is then in-memory — a 5-node
@@ -261,17 +384,33 @@ async function loadAllNodes(
     map.set(row.node_key, row);
   }
 
-  // If this flow relates to solar assistant, ensure all standard solar nodes exist
+  // If this flow relates to solar or quotes, ensure all standard solar nodes exist
   // so existing active flows never hit node_not_found on newly introduced quote steps.
   const { data: flow } = await db
     .from("flows")
-    .select("name")
+    .select("name, trigger_type, trigger_config")
     .eq("id", flowId)
     .maybeSingle();
   const flowName = (flow as { name?: string } | null)?.name?.toLowerCase() ?? "";
-  if (flowName.includes("solar") || map.has("welcome")) {
-    const template = getFlowTemplate("solar_assistant");
-    if (template) {
+  const isSolarOrQuote =
+    flowName.includes("solar") ||
+    flowName.includes("quote") ||
+    flowName.includes("quotation") ||
+    flowName.includes("enquiry") ||
+    flowName.includes("assistant") ||
+    flowName.includes("bijli") ||
+    map.has("welcome") ||
+    map.has("ask_name") ||
+    map.has("ask_phone") ||
+    map.has("check_lead_info");
+
+  if (isSolarOrQuote) {
+    const templates = [
+      getFlowTemplate("solar_quote_flow"),
+      getFlowTemplate("solar_assistant"),
+    ];
+    for (const template of templates) {
+      if (!template) continue;
       for (const tNode of template.nodes) {
         if (!map.has(tNode.node_key)) {
           map.set(tNode.node_key, {
@@ -288,110 +427,6 @@ async function loadAllNodes(
       }
     }
 
-    // In-flight backward compatibility aliases for any older runs suspended on legacy nodes
-    const LEGACY_SOLAR_FALLBACK_NODES: Array<{ node_key: string; node_type: string; config: Record<string, unknown> }> = [
-      {
-        node_key: "create_lead_2kw",
-        node_type: "create_lead",
-        config: {
-          full_name: "{{vars.name}}",
-          email: "{{vars.email}}",
-          state: "Uttar Pradesh",
-          city: "{{vars.city}}",
-          pincode: "{{vars.pincode}}",
-          property_type: "Residential",
-          monthly_bill: "1500",
-          roof_type: "RCC",
-          timeline: "Not decided",
-          source: "whatsapp_flow",
-          next_node_key: "quote_2kw",
-        },
-      },
-      {
-        node_key: "create_lead_3kw",
-        node_type: "create_lead",
-        config: {
-          full_name: "{{vars.name}}",
-          email: "{{vars.email}}",
-          state: "Uttar Pradesh",
-          city: "{{vars.city}}",
-          pincode: "{{vars.pincode}}",
-          property_type: "Residential",
-          monthly_bill: "2500",
-          roof_type: "RCC",
-          timeline: "Not decided",
-          source: "whatsapp_flow",
-          next_node_key: "quote_3kw",
-        },
-      },
-      {
-        node_key: "create_lead_5kw",
-        node_type: "create_lead",
-        config: {
-          full_name: "{{vars.name}}",
-          email: "{{vars.email}}",
-          state: "Uttar Pradesh",
-          city: "{{vars.city}}",
-          pincode: "{{vars.pincode}}",
-          property_type: "Residential",
-          monthly_bill: "4000",
-          roof_type: "RCC",
-          timeline: "Not decided",
-          source: "whatsapp_flow",
-          next_node_key: "quote_5kw",
-        },
-      },
-      {
-        node_key: "create_lead_75kw",
-        node_type: "create_lead",
-        config: {
-          full_name: "{{vars.name}}",
-          email: "{{vars.email}}",
-          state: "Uttar Pradesh",
-          city: "{{vars.city}}",
-          pincode: "{{vars.pincode}}",
-          property_type: "Residential",
-          monthly_bill: "5000",
-          roof_type: "RCC",
-          timeline: "Not decided",
-          source: "whatsapp_flow",
-          next_node_key: "quote_75kw",
-        },
-      },
-      {
-        node_key: "quote_2kw",
-        node_type: "send_message",
-        config: {
-          text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 2 kW On-Grid*",
-          next_node_key: "after_quote",
-        },
-      },
-      {
-        node_key: "quote_3kw",
-        node_type: "send_message",
-        config: {
-          text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 3 kW On-Grid*",
-          next_node_key: "after_quote",
-        },
-      },
-      {
-        node_key: "quote_5kw",
-        node_type: "send_message",
-        config: {
-          text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 5 kW On-Grid*",
-          next_node_key: "after_quote",
-        },
-      },
-      {
-        node_key: "quote_75kw",
-        node_type: "send_message",
-        config: {
-          text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 7.5 kW On-Grid*",
-          next_node_key: "after_quote",
-        },
-      },
-    ];
-
     for (const legNode of LEGACY_SOLAR_FALLBACK_NODES) {
       if (!map.has(legNode.node_key)) {
         map.set(legNode.node_key, {
@@ -404,6 +439,48 @@ async function loadAllNodes(
           position_y: 0,
           created_at: new Date().toISOString(),
         });
+      }
+    }
+  }
+
+  // Cross-reference safety: For every node currently in map, if its edges point to missing nodes,
+  // find them in any template and add them so runs never stall on missing edges.
+  for (const [, node] of Array.from(map.entries())) {
+    const cfg = node.config as Record<string, unknown>;
+    const targetKeys: string[] = [];
+    if (typeof cfg.next_node_key === "string") targetKeys.push(cfg.next_node_key);
+    if (typeof cfg.true_next === "string") targetKeys.push(cfg.true_next);
+    if (typeof cfg.false_next === "string") targetKeys.push(cfg.false_next);
+    if (Array.isArray(cfg.buttons)) {
+      for (const b of cfg.buttons as Array<{ next_node_key?: string }>) {
+        if (typeof b?.next_node_key === "string") targetKeys.push(b.next_node_key);
+      }
+    }
+    if (Array.isArray(cfg.sections)) {
+      for (const s of cfg.sections as Array<{ rows?: Array<{ next_node_key?: string }> }>) {
+        for (const r of s?.rows ?? []) {
+          if (typeof r?.next_node_key === "string") targetKeys.push(r.next_node_key);
+        }
+      }
+    }
+
+    for (const targetKey of targetKeys) {
+      if (targetKey && !map.has(targetKey)) {
+        const tNode =
+          findTemplateNode(targetKey) ??
+          LEGACY_SOLAR_FALLBACK_NODES.find((n) => n.node_key === targetKey);
+        if (tNode) {
+          map.set(targetKey, {
+            id: `template-${targetKey}`,
+            flow_id: flowId,
+            node_key: targetKey,
+            node_type: tNode.node_type as any,
+            config: tNode.config as Record<string, unknown>,
+            position_x: 0,
+            position_y: 0,
+            created_at: new Date().toISOString(),
+          });
+        }
       }
     }
   }
@@ -733,8 +810,32 @@ async function advanceFromNodeKey(
       await endRun(db, run.id, "failed", "missing_next_node");
       return { outcome: "completed" };
     }
-    const node: FlowNodeRow | null = nodes.get(currentKey) ?? null;
+    let node: FlowNodeRow | null = nodes.get(currentKey) ?? null;
     if (!node) {
+      const tNode =
+        findTemplateNode(currentKey) ??
+        LEGACY_SOLAR_FALLBACK_NODES.find((n) => n.node_key === currentKey);
+      if (tNode) {
+        node = {
+          id: `template-${currentKey}`,
+          flow_id: run.flow_id,
+          node_key: currentKey,
+          node_type: tNode.node_type as any,
+          config: tNode.config as Record<string, unknown>,
+          position_x: 0,
+          position_y: 0,
+          created_at: new Date().toISOString(),
+        };
+        nodes.set(currentKey, node);
+        console.warn(
+          `[flows] Auto-recovered missing node "${currentKey}" for flow "${run.flow_id}" from template fallback`,
+        );
+      }
+    }
+    if (!node) {
+      console.error(
+        `[flows] node_not_found: key="${currentKey}", flow="${run.flow_id}", current_node_key="${run.current_node_key}"`,
+      );
       await logEvent(db, run.id, "error", currentKey, {
         reason: "node_not_found",
       });
@@ -1049,45 +1150,16 @@ async function advanceFromNodeKey(
 }
 
 /**
- * Optimistic UPDATE — only advance current_node_key when it matches
- * the value we read at the top of dispatch. If another webhook beat
- * us, the row's pointer has already moved and our UPDATE returns
- * zero rows; we treat that as a no-op and let the other run continue.
+ * Directly update current_node_key on the active run so the pointer
+ * never gets desynchronized or stuck on optimistic mismatches.
  */
 async function advanceCurrentNodeKey(
   db: AdminClient,
   runId: string,
-  expectedOldKey: string | null,
+  _expectedOldKey: string | null,
   newKey: string,
 ): Promise<boolean> {
-  // PostgREST: when expectedOldKey is null we can't `.eq` (would match
-  // any row); use `.is('current_node_key', null)` instead.
-  let q = db
-    .from("flow_runs")
-    .update({
-      current_node_key: newKey,
-      last_advanced_at: new Date().toISOString(),
-    })
-    .eq("id", runId)
-    .eq("status", "active");
-  if (expectedOldKey === null) {
-    q = q.is("current_node_key", null);
-  } else {
-    q = q.eq("current_node_key", expectedOldKey);
-  }
-  const { data, error } = await q.select("id");
-  if (error) {
-    console.error("[flows] advanceCurrentNodeKey error:", error.message);
-    return false;
-  }
-  if (Array.isArray(data) && data.length > 0) return true;
-
-  // Fallback: If optimistic expectedOldKey check returned 0 rows (e.g. slight race),
-  // update directly by id if still active so the flow doesn't become desynchronized.
-  console.warn(
-    `[flows] advanceCurrentNodeKey optimistic check missed for run ${runId} (expected: ${expectedOldKey}), attempting fallback by active id`,
-  );
-  const { data: fallbackData, error: fbError } = await db
+  const { data, error } = await db
     .from("flow_runs")
     .update({
       current_node_key: newKey,
@@ -1096,11 +1168,11 @@ async function advanceCurrentNodeKey(
     .eq("id", runId)
     .eq("status", "active")
     .select("id");
-  if (fbError) {
-    console.error("[flows] advanceCurrentNodeKey fallback error:", fbError.message);
+  if (error) {
+    console.error("[flows] advanceCurrentNodeKey error:", error.message);
     return false;
   }
-  return Array.isArray(fallbackData) && fallbackData.length > 0;
+  return Array.isArray(data) && data.length > 0;
 }
 
 // ============================================================
@@ -1142,7 +1214,7 @@ export async function dispatchInboundToFlows(
         /^(?:hi|hello|hey|hii|helo|namaste|नमस्ते|हेलो)(?:[\s,!?.]*)$/i.test(rawText);
       const isExplicitRestart =
         input.message.kind === "text" &&
-        /^(?:solar|start|restart|reset|flow|shuru)(?:[\s,!?.]*)$/i.test(rawText);
+        /^(?:solar|start|restart|reset|flow|shuru|quote|quotation)(?:[\s,!?.]*)$/i.test(rawText);
 
       const lastActiveTime = activeRun.last_advanced_at
         ? new Date(activeRun.last_advanced_at).getTime()
@@ -1277,39 +1349,71 @@ async function handleReplyForActiveRun(
     };
   }
 
-  const currentNode = nodes.get(run.current_node_key) ?? null;
+  let currentNode = nodes.get(run.current_node_key) ?? null;
   if (!currentNode) {
+    const tNode =
+      findTemplateNode(run.current_node_key) ??
+      LEGACY_SOLAR_FALLBACK_NODES.find((n) => n.node_key === run.current_node_key);
+    if (tNode) {
+      currentNode = {
+        id: `template-${run.current_node_key}`,
+        flow_id: run.flow_id,
+        node_key: run.current_node_key,
+        node_type: tNode.node_type as any,
+        config: tNode.config as Record<string, unknown>,
+        position_x: 0,
+        position_y: 0,
+        created_at: new Date().toISOString(),
+      };
+      nodes.set(run.current_node_key, currentNode);
+      console.warn(
+        `[flows] Auto-recovered missing currentNode "${run.current_node_key}" for run "${run.id}"`,
+      );
+    }
+  }
+  if (!currentNode) {
+    console.error(
+      `[flows] current_node_not_found: run=${run.id}, key=${run.current_node_key}`,
+    );
     await endRun(db, run.id, "failed", "current_node_not_found");
     return { consumed: true, flow_run_id: run.id, outcome: "no_match" };
   }
 
   // Two ways a reply can advance:
-  //   1. Interactive button/list tap on a send_buttons/send_list node.
+  //   1. Interactive button/list tap or matching text on a send_buttons/send_list node.
   //   2. Text reply on a collect_input node — capture into vars.
   //
   // Everything else falls through to the fallback policy below.
   let matched: string | null = null;
   if (
-    message.kind === "interactive_reply" &&
+    (message.kind === "interactive_reply" || message.kind === "text") &&
     (currentNode.node_type === "send_buttons" ||
       currentNode.node_type === "send_list")
   ) {
-    matched = matchReplyId(currentNode, message.reply_id, message.reply_title);
+    const replyId =
+      message.kind === "interactive_reply" ? message.reply_id : message.text;
+    const replyTitle =
+      message.kind === "interactive_reply" ? message.reply_title : message.text;
+    matched = matchReplyId(currentNode, replyId, replyTitle);
     const cfg = currentNode.config as { var_key?: string };
     if (matched && cfg?.var_key) {
-      const selectedValue = message.reply_title || message.reply_id;
+      const selectedValue =
+        message.kind === "interactive_reply"
+          ? message.reply_title || message.reply_id
+          : message.text;
       const newVars = { ...(run.vars ?? {}), [cfg.var_key]: selectedValue };
+      run.vars = newVars;
       const { error: varErr } = await db
         .from("flow_runs")
         .update({ vars: newVars })
         .eq("id", run.id);
-      if (!varErr) {
-        run.vars = newVars;
-        await logEvent(db, run.id, "node_entered", currentNode.node_key, {
-          captured_key: cfg.var_key,
-          captured_value: selectedValue,
-        });
+      if (varErr) {
+        console.error("[flows] interactive reply var update error:", varErr.message);
       }
+      await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+        captured_key: cfg.var_key,
+        captured_value: selectedValue,
+      });
     }
   } else if (
     message.kind === "text" &&
@@ -1317,9 +1421,12 @@ async function handleReplyForActiveRun(
   ) {
     const cfg = currentNode.config as unknown as CollectInputNodeConfig;
     const captured = message.text.trim();
-    if (captured.length > 0 && cfg.var_key) {
-      // Persist captured value + reset reprompt count atomically.
-      const newVars = { ...(run.vars ?? {}), [cfg.var_key]: captured };
+    if (captured.length > 0) {
+      const varKey = cfg.var_key || currentNode.node_key;
+      const newVars = { ...(run.vars ?? {}), [varKey]: captured };
+      run.vars = newVars;
+      run.reprompt_count = 0;
+
       const { error: capErr } = await db
         .from("flow_runs")
         .update({
@@ -1327,18 +1434,24 @@ async function handleReplyForActiveRun(
           reprompt_count: 0,
         })
         .eq("id", run.id);
-      if (!capErr) {
-        // Mirror the UPDATE in-memory so downstream interpolation in
-        // the advance loop sees the captured var without us having to
-        // re-SELECT the whole row.
-        run.vars = newVars;
-        run.reprompt_count = 0;
-        await logEvent(db, run.id, "node_entered", currentNode.node_key, {
-          captured_key: cfg.var_key,
-          captured_length: captured.length,
-        });
-        matched = cfg.next_node_key;
+      if (capErr) {
+        console.error("[flows] collect_input var update failed:", capErr.message);
       }
+      await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+        captured_key: varKey,
+        captured_length: captured.length,
+      });
+
+      let nextKey = cfg.next_node_key;
+      if (!nextKey) {
+        const tNode =
+          findTemplateNode(currentNode.node_key) ??
+          LEGACY_SOLAR_FALLBACK_NODES.find((n) => n.node_key === currentNode.node_key);
+        if (tNode && (tNode.config as any)?.next_node_key) {
+          nextKey = (tNode.config as any).next_node_key;
+        }
+      }
+      matched = nextKey ?? null;
     }
   }
 

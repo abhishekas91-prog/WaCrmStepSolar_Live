@@ -549,13 +549,72 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
     expect(quoteFlow!.entry_node_id).toBe("start");
     expect(quoteFlow!.nodes.length).toBeGreaterThanOrEqual(12);
   });
+
+  it("finds template nodes on-the-fly via findTemplateNode", () => {
+    const askName = findTemplateNode("ask_name");
+    expect(askName).not.toBeNull();
+    expect(askName!.node_type).toBe("collect_input");
+    expect((askName!.config as any).next_node_key).toBe("ask_phone");
+
+    const askPhone = findTemplateNode("ask_phone");
+    expect(askPhone).not.toBeNull();
+    expect(askPhone!.node_type).toBe("collect_input");
+    expect((askPhone!.config as any).var_key).toBe("phone");
+
+    const askProperty = findTemplateNode("ask_property_type");
+    expect(askProperty).not.toBeNull();
+
+    expect(findTemplateNode("non_existent_key_12345")).toBeNull();
+  });
+
+  it("matches list and button options by text title for natural chat replies", () => {
+    const listNode = {
+      node_type: "send_list",
+      config: {
+        sections: [
+          {
+            rows: [
+              { reply_id: "prop_residential", title: "Residential", next_node_key: "ask_bill" },
+              { reply_id: "prop_commercial", title: "Commercial / Office", next_node_key: "ask_bill" },
+            ],
+          },
+        ],
+      },
+    };
+    // Customer typed "Residential" instead of interactive tap
+    expect(matchReplyId(listNode, "Residential")).toBe("ask_bill");
+    expect(matchReplyId(listNode, "commercial")).toBe("ask_bill");
+
+    const buttonNode = {
+      node_type: "send_buttons",
+      config: {
+        buttons: [
+          { reply_id: "time_immediate", title: "Immediately", next_node_key: "create_lead" },
+          { reply_id: "time_1_2_months", title: "Within 1–2 months", next_node_key: "create_lead" },
+        ],
+      },
+    };
+    // Customer typed "Immediately"
+    expect(matchReplyId(buttonNode, "Immediately")).toBe("create_lead");
+    expect(matchReplyId(buttonNode, "immediately")).toBe("create_lead");
+  });
+
+  it("interpolates captured customer name into ask_phone prompt", () => {
+    const askPhoneNode = findTemplateNode("ask_phone");
+    expect(askPhoneNode).not.toBeNull();
+    const rendered = interpolateVars((askPhoneNode!.config as any).prompt_text, {
+      name: "Abhishek Singh",
+    });
+    expect(rendered).toContain("Dhanyawad Abhishek Singh ji!");
+    expect(rendered).toContain("Contact Number");
+  });
 });
 
 describe("inbound greeting and restart patterns", () => {
   const isGreeting = (text: string) =>
     /^(?:hi|hello|hey|hii|helo|namaste|नमस्ते|हेलो)(?:[\s,!?.]*)$/i.test(text.trim());
   const isExplicitRestart = (text: string) =>
-    /^(?:solar|start|restart|reset|flow|shuru)(?:[\s,!?.]*)$/i.test(text.trim());
+    /^(?:solar|start|restart|reset|flow|shuru|quote|quotation)(?:[\s,!?.]*)$/i.test(text.trim());
 
   it("identifies greetings reliably across English and Hindi", () => {
     expect(isGreeting("hi")).toBe(true);
@@ -575,7 +634,9 @@ describe("inbound greeting and restart patterns", () => {
     expect(isExplicitRestart("restart")).toBe(true);
     expect(isExplicitRestart("reset")).toBe(true);
     expect(isExplicitRestart("shuru")).toBe(true);
-    expect(isExplicitRestart("quote")).toBe(false);
+    expect(isExplicitRestart("quote")).toBe(true);
+    expect(isExplicitRestart("quotation")).toBe(true);
+    expect(isExplicitRestart("other message")).toBe(false);
   });
 });
 
