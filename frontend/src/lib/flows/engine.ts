@@ -561,32 +561,167 @@ async function findEntryFlow(
   // Only text messages can match an entry trigger. Interactive replies
   // are responses to existing prompts; they never start a new flow.
   if (message.kind !== "text") return null;
+  const rawText = message.text.trim();
+  if (!rawText) return null;
 
-  // Pull all active flows for this account. Active set is bounded
-  // (the builder discourages double-trigger overlap; partial index
-  // makes the lookup index-supported).
+  // 1. Fetch all flows for this account (active and draft)
   const { data: flows, error } = await db
     .from("flows")
     .select("*")
     .eq("account_id", accountId)
-    .eq("status", "active")
+    .in("status", ["active", "draft"])
     .order("created_at", { ascending: true });
-  if (error || !flows) return null;
 
-  const typed = flows as FlowRow[];
-  for (const flow of typed) {
+  const typed = (flows as FlowRow[] | null) ?? [];
+
+  // Check active flows first with keyword trigger
+  const activeFlows = typed.filter((f) => f.status === "active");
+  for (const flow of activeFlows) {
     if (flow.trigger_type === "keyword") {
-      if (matchesKeywordTrigger(
-        message.text,
-        flow.trigger_config as KeywordTriggerConfig,
-      )) {
+      if (
+        matchesKeywordTrigger(
+          rawText,
+          flow.trigger_config as KeywordTriggerConfig,
+        )
+      ) {
         return flow;
       }
     } else if (flow.trigger_type === "first_inbound_message" && isFirstInbound) {
       return flow;
     }
-    // 'manual' triggers do not auto-start from inbound messages.
   }
+
+  // Check draft flows for this account. If the user created or edited a flow,
+  // auto-activate it so the user can immediately test it via WhatsApp!
+  const draftFlows = typed.filter((f) => f.status === "draft");
+  for (const flow of draftFlows) {
+    if (flow.trigger_type === "keyword") {
+      if (
+        matchesKeywordTrigger(
+          rawText,
+          flow.trigger_config as KeywordTriggerConfig,
+        )
+      ) {
+        console.info(
+          `[flows] Auto-activating draft flow "${flow.name}" (${flow.id}) matching keyword "${rawText}"`,
+        );
+        await db
+          .from("flows")
+          .update({ status: "active", updated_at: new Date().toISOString() })
+          .eq("id", flow.id);
+        flow.status = "active";
+        return flow;
+      }
+    }
+  }
+
+  // Check if inbound text expresses intent for a solar quote or solar in general
+  const lower = rawText.toLowerCase();
+  const isQuoteIntent =
+    /^(?:quote|quotation|price|rate|cost|daam|enquiry|estimate|kavach|solar\s*quote|quote\s*chahiye|naya\s*quote|new\s*quote|bijli\s*bill)(?:[\s,!?.]*)$/i.test(
+      rawText,
+    ) ||
+    lower.includes("quote") ||
+    lower.includes("quotation") ||
+    lower.includes("price") ||
+    lower.includes("rate") ||
+    lower.includes("cost") ||
+    lower.includes("daam") ||
+    lower.includes("enquiry");
+
+  const isSolarIntent =
+    isQuoteIntent ||
+    /^(?:solar|surya|rooftop|panel|subsidy|सौर|सूर्य|रूफटॉप|सब्सिडी|pannel|inverter)(?:[\s,!?.]*)$/i.test(
+      rawText,
+    ) ||
+    lower.includes("solar") ||
+    lower.includes("panel") ||
+    lower.includes("subsidy");
+
+  if (isQuoteIntent || isSolarIntent) {
+    // If the customer specifically asked for a quote, look for a quotation flow in DB
+    if (isQuoteIntent) {
+      const quoteFlow = typed.find(
+        (f) =>
+          f.name?.toLowerCase().includes("quote") ||
+          f.name?.toLowerCase().includes("quotation"),
+      );
+      if (quoteFlow) {
+        if (quoteFlow.status !== "active") {
+          await db
+            .from("flows")
+            .update({ status: "active", updated_at: new Date().toISOString() })
+            .eq("id", quoteFlow.id);
+          quoteFlow.status = "active";
+        }
+        return quoteFlow;
+      }
+    }
+
+    // Look for any solar flow in DB
+    const solarFlow = typed.find(
+      (f) =>
+        f.name?.toLowerCase().includes("solar") ||
+        f.name?.toLowerCase().includes("assistant"),
+    );
+    if (solarFlow) {
+      if (solarFlow.status !== "active") {
+        await db
+          .from("flows")
+          .update({ status: "active", updated_at: new Date().toISOString() })
+          .eq("id", solarFlow.id);
+        solarFlow.status = "active";
+      }
+      return solarFlow;
+    }
+
+    // Fallback: auto-seed the template into the database for this account
+    const targetSlug = isQuoteIntent ? "solar_quote_flow" : "solar_assistant";
+    const template = getFlowTemplate(targetSlug);
+    if (template) {
+      const { data: cfg } = await db
+        .from("whatsapp_config")
+        .select("user_id")
+        .eq("account_id", accountId)
+        .limit(1)
+        .maybeSingle();
+      const userId = (cfg as { user_id?: string } | null)?.user_id;
+      if (userId) {
+        console.info(
+          `[flows] Auto-seeding template "${targetSlug}" for account ${accountId}`,
+        );
+        const { data: createdFlow } = await db
+          .from("flows")
+          .insert({
+            user_id: userId,
+            account_id: accountId,
+            name: template.name,
+            description: template.description,
+            status: "active",
+            trigger_type: template.trigger_type,
+            trigger_config: template.trigger_config,
+            entry_node_id: template.entry_node_id,
+          })
+          .select()
+          .maybeSingle();
+
+        if (createdFlow) {
+          if (template.nodes.length > 0) {
+            await db.from("flow_nodes").insert(
+              template.nodes.map((n) => ({
+                flow_id: (createdFlow as any).id,
+                node_key: n.node_key,
+                node_type: n.node_type,
+                config: n.config,
+              })),
+            );
+          }
+          return createdFlow as FlowRow;
+        }
+      }
+    }
+  }
+
   return null;
 }
 
@@ -1214,7 +1349,14 @@ export async function dispatchInboundToFlows(
         /^(?:hi|hello|hey|hii|helo|namaste|नमस्ते|हेलो)(?:[\s,!?.]*)$/i.test(rawText);
       const isExplicitRestart =
         input.message.kind === "text" &&
-        /^(?:solar|start|restart|reset|flow|shuru|quote|quotation)(?:[\s,!?.]*)$/i.test(rawText);
+        (/^(?:solar|start|restart|reset|flow|shuru|quote|quotation|price|rate|cost|daam|enquiry|estimate|kavach|solar\s*quote|quote\s*chahiye|naya\s*quote|new\s*quote|bijli\s*bill)(?:[\s,!?.]*)$/i.test(
+          rawText,
+        ) ||
+          ((rawText.toLowerCase().includes("quote") ||
+            rawText.toLowerCase().includes("quotation") ||
+            rawText.toLowerCase().includes("price") ||
+            rawText.toLowerCase().includes("rate")) &&
+            activeRun.current_node_key !== "ask_name"));
 
       const lastActiveTime = activeRun.last_advanced_at
         ? new Date(activeRun.last_advanced_at).getTime()

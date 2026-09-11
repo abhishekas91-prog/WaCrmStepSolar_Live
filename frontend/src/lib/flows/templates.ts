@@ -323,6 +323,16 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       "सब्सिडी",
       "pannel",
       "inverter",
+      "quote",
+      "quotation",
+      "price",
+      "rate",
+      "cost",
+      "daam",
+      "enquiry",
+      "bill",
+      "bijli",
+      "estimate",
     ],
     match_type: "contains",
   },
@@ -343,7 +353,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
           {
             reply_id: "want_quote",
             title: "Quote chahiye",
-            next_node_key: "check_lead_info",
+            next_node_key: "ask_name",
           },
           {
             reply_id: "want_process",
@@ -613,7 +623,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
                 reply_id: "more_quote",
                 title: "Quote chahiye",
                 description: "Bill ke hisaab se size + cost",
-                next_node_key: "check_lead_info",
+                next_node_key: "ask_name",
               },
               {
                 reply_id: "more_human",
@@ -651,7 +661,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
           {
             reply_id: "info_quote",
             title: "Quote chahiye",
-            next_node_key: "check_lead_info",
+            next_node_key: "ask_name",
           },
           {
             reply_id: "info_agent",
@@ -701,6 +711,16 @@ const SOLAR_QUOTE_FLOW: FlowTemplate = {
       "cost",
       "daam",
       "enquiry",
+      "solar rate",
+      "solar price",
+      "bijli",
+      "bill",
+      "estimate",
+      "calculator",
+      "chhat",
+      "rooftop quote",
+      "quote chahiye",
+      "naya quote",
     ],
     match_type: "contains",
   },
@@ -745,6 +765,11 @@ const SOLAR_QUOTE_FLOW: FlowTemplate = {
       config: {
         text: "Aur kuch chahiye?",
         buttons: [
+          {
+            reply_id: "info_quote",
+            title: "Naya quote",
+            next_node_key: "ask_name",
+          },
           {
             reply_id: "info_agent",
             title: "Agent se baat",

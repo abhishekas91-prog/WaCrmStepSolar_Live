@@ -135,7 +135,8 @@ export function formatCrmStatusReply(lead: CrmLead): string {
     `Current project stage: *${phase}* (${status})\n` +
     timing + '\n' +
     assigned +
-    '\nOur team will contact you shortly regarding the next steps. Thank you for choosing StepSolar Energy.'
+    '\nOur team will contact you shortly regarding the next steps. Thank you for choosing StepSolar Energy.' +
+    '\n\nNaya rooftop quotation lene ke liye *Quotation* likhkar bhejein.'
   )
 }
 
