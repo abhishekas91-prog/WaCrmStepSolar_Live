@@ -136,11 +136,37 @@ export async function GET(
       }
 
       const processMsgNode = flowNodes.find((n) => n.node_key === 'process_msg')
-      if (
+      const hasAfterInfo = flowNodes.some((n) => n.node_key === 'after_info')
+      const hasAfterProcess = flowNodes.some(
+        (n) => n.node_key === 'after_process_buttons',
+      )
+
+      if (processMsgNode && hasAfterInfo) {
+        if ((processMsgNode.config as any)?.next_node_key !== 'after_info') {
+          const updatedConfig = {
+            ...(processMsgNode.config as Record<string, unknown>),
+            next_node_key: 'after_info',
+          }
+          await admin
+            .from('flow_nodes')
+            .update({ config: updatedConfig })
+            .eq('flow_id', id)
+            .eq('node_key', 'process_msg')
+          processMsgNode.config = updatedConfig
+        }
+        if (hasAfterProcess) {
+          await admin
+            .from('flow_nodes')
+            .delete()
+            .eq('flow_id', id)
+            .eq('node_key', 'after_process_buttons')
+          flowNodes = flowNodes.filter((n) => n.node_key !== 'after_process_buttons')
+        }
+      } else if (
         processMsgNode &&
         (processMsgNode.config as any)?.next_node_key === 'after_info' &&
-        !flowNodes.some((n) => n.node_key === 'after_info') &&
-        flowNodes.some((n) => n.node_key === 'after_process_buttons')
+        !hasAfterInfo &&
+        hasAfterProcess
       ) {
         const updatedConfig = {
           ...(processMsgNode.config as Record<string, unknown>),

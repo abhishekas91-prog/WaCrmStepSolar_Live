@@ -736,27 +736,8 @@ const SOLAR_QUOTE_FLOW: FlowTemplate = {
       node_type: "send_message",
       config: {
         text: "Solar lagane ka pura process aisa hai:\n\n1. Free site survey & bill verification (15 min call or visit)\n2. Custom quotation + subsidy calculation, shared on WhatsApp\n3. Aap approve → documentation & DISCOM subsidy registration\n4. Installation, net meter & DISCOM inspection (7–15 days)\n5. System commissioning + subsidy directly credited to your bank\n\nTotal time: aksar 2-4 hafte. Aap sirf document sign karte hain, baaki hum sambhalte hain.",
-        next_node_key: "after_process_buttons",
+        next_node_key: "after_info",
       } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "after_process_buttons",
-      node_type: "send_buttons",
-      config: {
-        text: "Aur kuch chahiye?",
-        buttons: [
-          {
-            reply_id: "info_agent",
-            title: "Agent se baat",
-            next_node_key: "handoff",
-          },
-          {
-            reply_id: "info_done",
-            title: "Theek hai",
-            next_node_key: "end",
-          },
-        ],
-      } as SendButtonsNodeConfig,
     },
     {
       node_key: "after_info",
@@ -800,6 +781,12 @@ export function findTemplateNode(nodeKey: string): FlowTemplateNode | null {
   for (const t of Object.values(TEMPLATES)) {
     const found = t.nodes.find((n) => n.node_key === nodeKey);
     if (found) return found;
+  }
+  if (nodeKey === "after_process_buttons") {
+    const afterInfo = findTemplateNode("after_info");
+    if (afterInfo) {
+      return { ...afterInfo, node_key: "after_process_buttons" };
+    }
   }
   return null;
 }
