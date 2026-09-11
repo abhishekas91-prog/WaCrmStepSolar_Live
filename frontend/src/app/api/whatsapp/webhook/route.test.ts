@@ -18,6 +18,7 @@ const h = vi.hoisted(() => ({
     afterCallbacks: [] as (() => Promise<void> | void)[],
     automationStarted: 0,
     automationCompleted: 0,
+    recentBotMsgCount: 0,
     crmLead: null as { id: string; code: string; full_name: string; stages: { key: string; label: string; status: string }[]; assigned_name: string | null; created_at: string } | null,
   },
 }))
@@ -87,16 +88,31 @@ vi.mock('@/lib/mongo/compat', () => ({
           }
         case 'messages':
           return {
-            // priorCustomerMsgCount: select('id',{count,head}).eq().eq()
-            select: () => ({
-              eq: () => ({
-                eq: () =>
-                  Promise.resolve({
-                    count: h.state.priorCustomerMsgCount,
-                    error: null,
-                  }),
-              }),
-            }),
+            select: () => {
+              const chain: any = {
+                eq: (_col: string, val: string) => {
+                  if (val === 'bot') {
+                    const botChain: any = {
+                      gte: () => botChain,
+                      ilike: () =>
+                        Promise.resolve({
+                          count: h.state.recentBotMsgCount,
+                          error: null,
+                        }),
+                    }
+                    return botChain
+                  }
+                  return {
+                    eq: () =>
+                      Promise.resolve({
+                        count: h.state.priorCustomerMsgCount,
+                        error: null,
+                      }),
+                  }
+                },
+              }
+              return chain
+            },
             // Idempotent insert: upsert(...).select('id')
             upsert: (row: Record<string, unknown>, options: unknown) => {
               h.state.upsertCalls.push({ row, options })
@@ -257,6 +273,24 @@ describe('greeting routing', () => {
       text: 'CRM lead: SS-001',
     }))
     expect(h.dispatchInboundToFlows).not.toHaveBeenCalled()
+  })
+
+  it('does not resend CRM status if sent within 24 hours, continuing to flows', async () => {
+    h.state.recentBotMsgCount = 1
+    h.lookupCrmLead.mockResolvedValue({
+      id: 'lead-1',
+      code: 'SS-001',
+      full_name: 'Ada',
+      stages: [],
+      assigned_name: null,
+      created_at: '2026-09-09T00:00:00Z',
+    })
+
+    await runWebhook()
+
+    expect(h.lookupCrmLead).toHaveBeenCalledWith('5551230000')
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.dispatchInboundToFlows).toHaveBeenCalled()
   })
 
   it('passes a Meta button tap to the flow runner as an interactive reply', async () => {

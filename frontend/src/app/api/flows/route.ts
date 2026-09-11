@@ -35,6 +35,24 @@ export async function GET() {
   }
   const { supabase } = guard
 
+  // Auto-clean any deprecated "Solar Quote & Enquiry" flow so users only have the unified "Solar Assistant"
+  try {
+    const admin = supabaseAdmin()
+    const { data: deprecatedFlows } = await admin
+      .from('flows')
+      .select('id')
+      .ilike('name', '%Solar Quote & Enquiry%')
+
+    if (deprecatedFlows && deprecatedFlows.length > 0) {
+      const ids = deprecatedFlows.map((f: { id: string }) => f.id)
+      await admin.from('flow_nodes').delete().in('flow_id', ids)
+      await admin.from('flow_runs').delete().in('flow_id', ids)
+      await admin.from('flows').delete().in('id', ids)
+    }
+  } catch (err) {
+    console.error('[flows] auto-cleanup error:', err)
+  }
+
   const { data, error } = await supabase
     .from('flows')
     .select('*')

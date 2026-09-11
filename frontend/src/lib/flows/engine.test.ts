@@ -389,7 +389,7 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
     expect(template).not.toBeNull();
     if (!template) return;
 
-    // 1. Welcome node has 'want_quote' button -> routes to check_lead_info
+    // 1. Welcome node has 'want_quote' button -> routes directly to ask_name
     const welcomeNode = template.nodes.find((n) => n.node_key === "welcome");
     expect(welcomeNode).toBeDefined();
     const cfg = welcomeNode!.config as SendButtonsNodeConfig;
@@ -397,23 +397,7 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
       { node_type: "send_buttons", config: cfg as any },
       "want_quote",
     );
-    expect(nextKey).toBe("check_lead_info");
-
-    // 2. check_lead_info condition node checks vars.name
-    const conditionNode = template.nodes.find(
-      (n) => n.node_key === "check_lead_info",
-    );
-    expect(conditionNode).toBeDefined();
-    const condCfg = conditionNode!.config as ConditionNodeConfig;
-
-    // Simulate run when customer hasn't provided name yet (run.vars is {} or undefined)
-    const run = { id: "test-run", vars: undefined } as unknown as FlowRunRow;
-    const hasName = await evaluateConditionNode({} as any, run, condCfg);
-    expect(hasName).toBe(false);
-
-    // Follows false_next -> ask_name
-    const resolvedNext = hasName ? condCfg.true_next : condCfg.false_next;
-    expect(resolvedNext).toBe("ask_name");
+    expect(nextKey).toBe("ask_name");
 
     // 1. ask_name (Full Name*)
     const askNameNode = template.nodes.find((n) => n.node_key === "ask_name");
@@ -527,27 +511,24 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
     expect((quoteNode!.config as any).next_node_key).toBe("after_quote");
   });
 
-  it("skips lead questions to quote_summary if details are already present", async () => {
-    const template = getFlowTemplate("solar_assistant");
-    expect(template).not.toBeNull();
-    const conditionNode = template!.nodes.find((n) => n.node_key === "check_lead_info");
-    expect(conditionNode).toBeDefined();
-
-    const runWithName = { id: "run-with-name", vars: { name: "Abhishek" } } as unknown as FlowRunRow;
-    const hasName = await evaluateConditionNode({} as any, runWithName, conditionNode!.config as ConditionNodeConfig);
-    expect(hasName).toBe(true);
-
-    const condCfg = conditionNode!.config as ConditionNodeConfig;
-    const nextKey = hasName ? condCfg.true_next : condCfg.false_next;
-    expect(nextKey).toBe("quote_summary");
-  });
-
-  it("registers standalone solar_quote_flow template", () => {
-    const quoteFlow = getFlowTemplate("solar_quote_flow");
-    expect(quoteFlow).not.toBeNull();
-    expect(quoteFlow!.slug).toBe("solar_quote_flow");
-    expect(quoteFlow!.entry_node_id).toBe("start");
-    expect(quoteFlow!.nodes.length).toBeGreaterThanOrEqual(12);
+  it("solar_assistant template includes comprehensive 10-step quote flow", () => {
+    const assistant = getFlowTemplate("solar_assistant");
+    expect(assistant).not.toBeNull();
+    expect(assistant!.slug).toBe("solar_assistant");
+    expect(assistant!.entry_node_id).toBe("start");
+    const nodeKeys = assistant!.nodes.map((n) => n.node_key);
+    expect(nodeKeys).toContain("ask_name");
+    expect(nodeKeys).toContain("ask_phone");
+    expect(nodeKeys).toContain("ask_email");
+    expect(nodeKeys).toContain("ask_state");
+    expect(nodeKeys).toContain("ask_city");
+    expect(nodeKeys).toContain("ask_pincode");
+    expect(nodeKeys).toContain("ask_property_type");
+    expect(nodeKeys).toContain("ask_bill");
+    expect(nodeKeys).toContain("ask_roof_type");
+    expect(nodeKeys).toContain("ask_timeline");
+    expect(nodeKeys).toContain("create_lead");
+    expect(nodeKeys).toContain("quote_summary");
   });
 
   it("finds template nodes on-the-fly via findTemplateNode", () => {

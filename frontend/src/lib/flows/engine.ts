@@ -417,7 +417,6 @@ async function loadAllNodes(
 
   if (isSolarOrQuote) {
     const templates = [
-      getFlowTemplate("solar_quote_flow"),
       getFlowTemplate("solar_assistant"),
     ];
     for (const template of templates) {
@@ -687,7 +686,7 @@ async function findEntryFlow(
     }
 
     // Fallback: auto-seed the template into the database for this account
-    const targetSlug = isQuoteIntent ? "solar_quote_flow" : "solar_assistant";
+    const targetSlug = "solar_assistant";
     const template = getFlowTemplate(targetSlug);
     if (template) {
       const { data: cfg } = await db
@@ -1723,6 +1722,18 @@ async function startNewRun(
   input: DispatchInboundInput,
   nodes: Map<string, FlowNodeRow>,
 ): Promise<DispatchInboundResult> {
+  const rawText = input.message.kind === "text" ? input.message.text.trim() : "";
+  const isDirectQuote =
+    input.message.kind === "text" &&
+    /^(?:quote|quotation|price|rate|cost|daam|enquiry|estimate|kavach|solar\s*quote|quote\s*chahiye|naya\s*quote|new\s*quote)(?:[\s,!?.]*)$/i.test(
+      rawText,
+    );
+
+  const startNodeKey =
+    isDirectQuote && nodes.has("ask_name")
+      ? "ask_name"
+      : flow.entry_node_id || "start";
+
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as
   // consumed:true (the parallel webhook handles it).
@@ -1742,7 +1753,7 @@ async function startNewRun(
       contact_id: input.contactId,
       conversation_id: input.conversationId,
       status: "active",
-      current_node_key: flow.entry_node_id,
+      current_node_key: startNodeKey,
       vars: {},
       reprompt_count: 0,
       started_at: nowIso,
@@ -1773,7 +1784,7 @@ async function startNewRun(
             contact_id: input.contactId,
             conversation_id: input.conversationId,
             status: "active",
-            current_node_key: flow.entry_node_id,
+            current_node_key: startNodeKey,
             vars: {},
             reprompt_count: 0,
             started_at: retryIso,
@@ -1785,7 +1796,7 @@ async function startNewRun(
           const run = retryInserted as FlowRunRow;
           if (!run.vars || typeof run.vars !== "object") run.vars = {};
           if (typeof run.reprompt_count !== "number") run.reprompt_count = 0;
-          await logEvent(db, run.id, "started", flow.entry_node_id, {
+          await logEvent(db, run.id, "started", startNodeKey, {
             flow_id: flow.id,
             trigger_type: flow.trigger_type,
             meta_message_id: input.message.meta_message_id,
@@ -1793,7 +1804,7 @@ async function startNewRun(
           const outcome = await advanceFromNodeKey(
             db,
             run,
-            flow.entry_node_id!,
+            startNodeKey,
             nodes,
           );
           return {
@@ -1815,7 +1826,7 @@ async function startNewRun(
   if (typeof run.reprompt_count !== "number") {
     run.reprompt_count = 0;
   }
-  await logEvent(db, run.id, "started", flow.entry_node_id, {
+  await logEvent(db, run.id, "started", startNodeKey, {
     flow_id: flow.id,
     trigger_type: flow.trigger_type,
     meta_message_id: input.message.meta_message_id,
@@ -1836,8 +1847,8 @@ async function startNewRun(
     console.error("[flows] execution_count rpc error:", incErr.message);
   }
 
-  // Run the advance loop starting from the entry node.
-  const outcome = await advanceFromNodeKey(db, run, flow.entry_node_id!, nodes);
+  // Run the advance loop starting from startNodeKey.
+  const outcome = await advanceFromNodeKey(db, run, startNodeKey, nodes);
   return {
     consumed: true,
     flow_run_id: run.id,

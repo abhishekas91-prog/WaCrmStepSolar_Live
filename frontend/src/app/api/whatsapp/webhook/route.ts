@@ -388,6 +388,25 @@ export function isGreeting(text: string): boolean {
   )
 }
 
+/**
+ * Checks whether this conversation was sent a CRM status summary within the last 24 hours.
+ * Ensures an existing lead only receives the status update message at most once per 24 hours on greeting.
+ */
+export async function hasRecentCrmStatusReply(
+  conversationId: string,
+): Promise<boolean> {
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const { count } = await supabaseAdmin()
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('conversation_id', conversationId)
+    .eq('sender_type', 'bot')
+    .gte('created_at', since)
+    .ilike('content_text', '%solar project enquiry is registered successfully%')
+
+  return (count ?? 0) > 0
+}
+
 function ladderLevel(s: string): number {
   const idx = (RECIPIENT_STATUS_LADDER as readonly string[]).indexOf(s)
   return idx < 0 ? -1 : idx
@@ -813,25 +832,29 @@ async function processMessage(
   await flagBroadcastReplyIfAny(accountId, contactRecord.id)
 
   // A greeting is the CRM handoff point. Returning customers get their live
-  // lead information first; new customers continue into Solar Assistant.
-  // Do this before flow dispatch so an existing lead cannot start a second
-  // solar run or receive two replies.
+  // lead information first (at most once every 24 hours); new customers or returning
+  // customers on subsequent messages continue into Solar Assistant.
+  // Do this before flow dispatch so an existing lead cannot receive duplicate
+  // status spam within 24 hours.
   const inboundText = contentText ?? message.text?.body ?? ''
   let crmGreetingHandled = false
   if (message.type === 'text' && isGreeting(inboundText)) {
     const lead = await lookupCrmLead(senderPhone.slice(-10))
     if (lead) {
-      try {
-        await engineSendText({
-          accountId,
-          userId: configOwnerUserId,
-          conversationId: conversation.id,
-          contactId: contactRecord.id,
-          text: formatCrmStatusReply(lead),
-        })
-        crmGreetingHandled = true
-      } catch (err) {
-        console.error('[crm-lookup] greeting reply failed:', err)
+      const alreadySent = await hasRecentCrmStatusReply(conversation.id)
+      if (!alreadySent) {
+        try {
+          await engineSendText({
+            accountId,
+            userId: configOwnerUserId,
+            conversationId: conversation.id,
+            contactId: contactRecord.id,
+            text: formatCrmStatusReply(lead),
+          })
+          crmGreetingHandled = true
+        } catch (err) {
+          console.error('[crm-lookup] greeting reply failed:', err)
+        }
       }
     }
   }
@@ -941,26 +964,6 @@ async function processMessage(
         interactive_reply_id: interactiveReplyId ?? undefined,
       },
     }).catch((err) => console.error('[automations] dispatch failed:', err))
-  }
-
-  // Returning contact, not mid-flow, not their first-ever message →
-  // check StepSolar-CRM for an existing lead and reply with its live
-  // status instead of silently doing nothing (the lead-capture Flow
-  // only auto-starts on `first_inbound_message`, so this is the one
-  // case it doesn't cover). See lib/solar/crm-lookup.ts for why this
-  // is plain code rather than a Flow/Automation node.
-  if (!contactOutcome.wasCreated && !isFirstInboundMessage && !flowConsumed && !isGreeting(inboundText)) {
-    const phone10 = senderPhone.slice(-10) // drop the 91 country code
-    const lead = await lookupCrmLead(phone10)
-    if (lead) {
-      await engineSendText({
-        accountId,
-        userId: configOwnerUserId,
-        conversationId: conversation.id,
-        contactId: contactRecord.id,
-        text: formatCrmStatusReply(lead),
-      }).catch((err) => console.error('[crm-lookup] status reply failed:', err))
-    }
   }
 
   // Solar quotes and AI auto-reply used to run here. Both are gone:
