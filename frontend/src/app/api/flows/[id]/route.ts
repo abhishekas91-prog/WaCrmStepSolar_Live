@@ -81,134 +81,133 @@ export async function GET(
   }>
 
   // Self-healing for cloned flows containing unreachable legacy nodes or broken references
-  const hasCheckLeadInfo = flowNodes.some((n) => n.node_key === 'check_lead_info')
   const admin = supabaseAdmin()
 
-  if (!hasCheckLeadInfo) {
-    const ORPHAN_KEYS = new Set([
-      'create_lead_2kw',
-      'create_lead_3kw',
-      'create_lead_5kw',
-      'create_lead_75kw',
-      'quote_2kw',
-      'quote_3kw',
-      'quote_5kw',
-      'quote_75kw',
-      'more_list',
-      'subsidy_msg',
-    ])
-
-    const hasOrphans = flowNodes.some((n) => ORPHAN_KEYS.has(n.node_key))
-    const afterInfoNode = flowNodes.find(
-      (n) => n.node_key === 'after_info' || n.node_key === 'after_process_buttons',
+  // 1. Clean up unreachable check_lead_info if nothing in the flow points to it
+  const checkLeadNode = flowNodes.find((n) => n.node_key === 'check_lead_info')
+  if (checkLeadNode) {
+    const otherConfigs = JSON.stringify(
+      flowNodes
+        .filter((n) => n.node_key !== 'check_lead_info')
+        .map((n) => n.config),
     )
-    const afterButtons = Array.isArray((afterInfoNode?.config as any)?.buttons)
-      ? ((afterInfoNode?.config as any).buttons as Array<{ next_node_key?: string }>)
-      : []
-    const hasDanglingButton = afterButtons.some(
-      (b) => b.next_node_key === 'check_lead_info',
-    )
-
-    if (hasOrphans || hasDanglingButton) {
-      if (hasOrphans) {
-        await admin
-          .from('flow_nodes')
-          .delete()
-          .eq('flow_id', id)
-          .in('node_key', Array.from(ORPHAN_KEYS))
-        flowNodes = flowNodes.filter((n) => !ORPHAN_KEYS.has(n.node_key))
-      }
-
-      if (hasDanglingButton && afterInfoNode) {
-        const cleanButtons = afterButtons.filter(
-          (b) => b.next_node_key !== 'check_lead_info',
-        )
-        const updatedConfig = {
-          ...(afterInfoNode.config as Record<string, unknown>),
-          buttons: cleanButtons,
-        }
-        await admin
-          .from('flow_nodes')
-          .update({ config: updatedConfig })
-          .eq('flow_id', id)
-          .eq('node_key', afterInfoNode.node_key)
-        afterInfoNode.config = updatedConfig
-      }
-
-      const processMsgNode = flowNodes.find((n) => n.node_key === 'process_msg')
-      const hasAfterInfo = flowNodes.some((n) => n.node_key === 'after_info')
-      const hasAfterProcess = flowNodes.some(
-        (n) => n.node_key === 'after_process_buttons',
-      )
-
-      if (processMsgNode && hasAfterInfo) {
-        if ((processMsgNode.config as any)?.next_node_key !== 'after_info') {
-          const updatedConfig = {
-            ...(processMsgNode.config as Record<string, unknown>),
-            next_node_key: 'after_info',
-          }
-          await admin
-            .from('flow_nodes')
-            .update({ config: updatedConfig })
-            .eq('flow_id', id)
-            .eq('node_key', 'process_msg')
-          processMsgNode.config = updatedConfig
-        }
-        if (hasAfterProcess) {
-          await admin
-            .from('flow_nodes')
-            .delete()
-            .eq('flow_id', id)
-            .eq('node_key', 'after_process_buttons')
-          flowNodes = flowNodes.filter((n) => n.node_key !== 'after_process_buttons')
-        }
-      } else if (
-        processMsgNode &&
-        (processMsgNode.config as any)?.next_node_key === 'after_info' &&
-        !hasAfterInfo &&
-        hasAfterProcess
-      ) {
-        const updatedConfig = {
-          ...(processMsgNode.config as Record<string, unknown>),
-          next_node_key: 'after_process_buttons',
-        }
-        await admin
-          .from('flow_nodes')
-          .update({ config: updatedConfig })
-          .eq('flow_id', id)
-          .eq('node_key', 'process_msg')
-        processMsgNode.config = updatedConfig
-      }
+    if (!otherConfigs.includes('"check_lead_info"')) {
+      await admin
+        .from('flow_nodes')
+        .delete()
+        .eq('flow_id', id)
+        .eq('node_key', 'check_lead_info')
+      flowNodes = flowNodes.filter((n) => n.node_key !== 'check_lead_info')
     }
-  } else {
-    // If check_lead_info exists (solar_assistant), also clean up the 8 unreachable legacy bill slab nodes
-    const LEGACY_8_KEYS = new Set([
-      'create_lead_2kw',
-      'create_lead_3kw',
-      'create_lead_5kw',
-      'create_lead_75kw',
-      'quote_2kw',
-      'quote_3kw',
-      'quote_5kw',
-      'quote_75kw',
-    ])
-    const hasLegacy8 = flowNodes.some((n) => LEGACY_8_KEYS.has(n.node_key))
-    if (hasLegacy8) {
-      const jsonStr = JSON.stringify(
-        flowNodes
-          .filter((n) => !LEGACY_8_KEYS.has(n.node_key))
-          .map((n) => n.config),
-      )
-      const isPointedTo = Array.from(LEGACY_8_KEYS).some((k) =>
-        jsonStr.includes(`"${k}"`),
-      )
-      if (!isPointedTo) {
+  }
+
+  // 2. Clean up legacy 8 bill-slab nodes if unreferenced
+  const LEGACY_8_KEYS = new Set([
+    'create_lead_2kw',
+    'create_lead_3kw',
+    'create_lead_5kw',
+    'create_lead_75kw',
+    'quote_2kw',
+    'quote_3kw',
+    'quote_5kw',
+    'quote_75kw',
+  ])
+  const hasLegacy8 = flowNodes.some((n) => LEGACY_8_KEYS.has(n.node_key))
+  if (hasLegacy8) {
+    const otherConfigs = JSON.stringify(
+      flowNodes
+        .filter((n) => !LEGACY_8_KEYS.has(n.node_key))
+        .map((n) => n.config),
+    )
+    const isPointedTo = Array.from(LEGACY_8_KEYS).some((k) =>
+      otherConfigs.includes(`"${k}"`),
+    )
+    if (!isPointedTo) {
+      await admin
+        .from('flow_nodes')
+        .delete()
+        .eq('flow_id', id)
+        .in('node_key', Array.from(LEGACY_8_KEYS))
+      flowNodes = flowNodes.filter((n) => !LEGACY_8_KEYS.has(n.node_key))
+    }
+  }
+
+  // 3. Clean up process_msg -> after_info routing and duplicate after_process_buttons
+  const processMsgNode = flowNodes.find((n) => n.node_key === 'process_msg')
+  const hasAfterInfo = flowNodes.some((n) => n.node_key === 'after_info')
+  const hasAfterProcess = flowNodes.some(
+    (n) => n.node_key === 'after_process_buttons',
+  )
+
+  if (processMsgNode && hasAfterInfo) {
+    if ((processMsgNode.config as any)?.next_node_key !== 'after_info') {
+      const updatedConfig = {
+        ...(processMsgNode.config as Record<string, unknown>),
+        next_node_key: 'after_info',
+      }
+      await admin
+        .from('flow_nodes')
+        .update({ config: updatedConfig })
+        .eq('flow_id', id)
+        .eq('node_key', 'process_msg')
+      processMsgNode.config = updatedConfig
+    }
+    if (hasAfterProcess) {
+      await admin
+        .from('flow_nodes')
+        .delete()
+        .eq('flow_id', id)
+        .eq('node_key', 'after_process_buttons')
+      flowNodes = flowNodes.filter((n) => n.node_key !== 'after_process_buttons')
+    }
+  } else if (
+    processMsgNode &&
+    (processMsgNode.config as any)?.next_node_key === 'after_info' &&
+    !hasAfterInfo &&
+    hasAfterProcess
+  ) {
+    const updatedConfig = {
+      ...(processMsgNode.config as Record<string, unknown>),
+      next_node_key: 'after_process_buttons',
+    }
+    await admin
+      .from('flow_nodes')
+      .update({ config: updatedConfig })
+      .eq('flow_id', id)
+      .eq('node_key', 'process_msg')
+    processMsgNode.config = updatedConfig
+  }
+
+  // 4. Ensure no buttons reference deleted check_lead_info
+  const remainingHasCheckLead = flowNodes.some((n) => n.node_key === 'check_lead_info')
+  if (!remainingHasCheckLead) {
+    for (const n of flowNodes) {
+      const cfg = n.config as any
+      let modified = false
+      if (Array.isArray(cfg?.buttons)) {
+        for (const b of cfg.buttons) {
+          if (b.next_node_key === 'check_lead_info') {
+            b.next_node_key = 'ask_name'
+            modified = true
+          }
+        }
+      }
+      if (Array.isArray(cfg?.sections)) {
+        for (const s of cfg.sections) {
+          for (const r of s?.rows ?? []) {
+            if (r.next_node_key === 'check_lead_info') {
+              r.next_node_key = 'ask_name'
+              modified = true
+            }
+          }
+        }
+      }
+      if (modified) {
         await admin
           .from('flow_nodes')
-          .delete()
+          .update({ config: cfg })
           .eq('flow_id', id)
-          .in('node_key', Array.from(LEGACY_8_KEYS))
-        flowNodes = flowNodes.filter((n) => !LEGACY_8_KEYS.has(n.node_key))
+          .eq('node_key', n.node_key)
       }
     }
   }

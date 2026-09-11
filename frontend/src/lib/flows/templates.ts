@@ -369,17 +369,6 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       } as SendButtonsNodeConfig,
     },
     {
-      node_key: "check_lead_info",
-      node_type: "condition",
-      config: {
-        subject: "var",
-        subject_key: "name",
-        operator: "present",
-        true_next: "quote_summary",
-        false_next: "ask_name",
-      } as ConditionNodeConfig,
-    },
-    {
       node_key: "ask_name",
       node_type: "collect_input",
       config: {
