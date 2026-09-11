@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validateFlowForActivation, reachableFromEntry } from "./validate";
+import { listFlowTemplates } from "./templates";
 
 const validFlow = {
   name: "Welcome",
@@ -545,5 +546,28 @@ describe("reachableFromEntry", () => {
     ];
     const set = reachableFromEntry("a", nodes);
     expect(set).toEqual(new Set(["a", "b"]));
+  });
+});
+
+describe("validateFlowForActivation — flow templates gallery", () => {
+  it("validates every starter template with 0 errors and 0 warnings", () => {
+    const templates = listFlowTemplates();
+    expect(templates.length).toBeGreaterThanOrEqual(5);
+
+    for (const tmpl of templates) {
+      const issues = validateFlowForActivation(
+        {
+          name: tmpl.name,
+          trigger_type: tmpl.trigger_type,
+          trigger_config: tmpl.trigger_config as Record<string, unknown>,
+          entry_node_id: tmpl.entry_node_id,
+        },
+        tmpl.nodes as any[],
+      );
+      expect(
+        issues,
+        `Template "${tmpl.slug}" produced issues: ${JSON.stringify(issues)}`,
+      ).toEqual([]);
+    }
   });
 });

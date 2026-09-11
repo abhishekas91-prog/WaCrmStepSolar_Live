@@ -287,6 +287,125 @@ async function loadAllNodes(
         }
       }
     }
+
+    // In-flight backward compatibility aliases for any older runs suspended on legacy nodes
+    const LEGACY_SOLAR_FALLBACK_NODES: Array<{ node_key: string; node_type: string; config: Record<string, unknown> }> = [
+      {
+        node_key: "create_lead_2kw",
+        node_type: "create_lead",
+        config: {
+          full_name: "{{vars.name}}",
+          email: "{{vars.email}}",
+          state: "Uttar Pradesh",
+          city: "{{vars.city}}",
+          pincode: "{{vars.pincode}}",
+          property_type: "Residential",
+          monthly_bill: "1500",
+          roof_type: "RCC",
+          timeline: "Not decided",
+          source: "whatsapp_flow",
+          next_node_key: "quote_2kw",
+        },
+      },
+      {
+        node_key: "create_lead_3kw",
+        node_type: "create_lead",
+        config: {
+          full_name: "{{vars.name}}",
+          email: "{{vars.email}}",
+          state: "Uttar Pradesh",
+          city: "{{vars.city}}",
+          pincode: "{{vars.pincode}}",
+          property_type: "Residential",
+          monthly_bill: "2500",
+          roof_type: "RCC",
+          timeline: "Not decided",
+          source: "whatsapp_flow",
+          next_node_key: "quote_3kw",
+        },
+      },
+      {
+        node_key: "create_lead_5kw",
+        node_type: "create_lead",
+        config: {
+          full_name: "{{vars.name}}",
+          email: "{{vars.email}}",
+          state: "Uttar Pradesh",
+          city: "{{vars.city}}",
+          pincode: "{{vars.pincode}}",
+          property_type: "Residential",
+          monthly_bill: "4000",
+          roof_type: "RCC",
+          timeline: "Not decided",
+          source: "whatsapp_flow",
+          next_node_key: "quote_5kw",
+        },
+      },
+      {
+        node_key: "create_lead_75kw",
+        node_type: "create_lead",
+        config: {
+          full_name: "{{vars.name}}",
+          email: "{{vars.email}}",
+          state: "Uttar Pradesh",
+          city: "{{vars.city}}",
+          pincode: "{{vars.pincode}}",
+          property_type: "Residential",
+          monthly_bill: "5000",
+          roof_type: "RCC",
+          timeline: "Not decided",
+          source: "whatsapp_flow",
+          next_node_key: "quote_75kw",
+        },
+      },
+      {
+        node_key: "quote_2kw",
+        node_type: "send_message",
+        config: {
+          text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 2 kW On-Grid*",
+          next_node_key: "after_quote",
+        },
+      },
+      {
+        node_key: "quote_3kw",
+        node_type: "send_message",
+        config: {
+          text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 3 kW On-Grid*",
+          next_node_key: "after_quote",
+        },
+      },
+      {
+        node_key: "quote_5kw",
+        node_type: "send_message",
+        config: {
+          text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 5 kW On-Grid*",
+          next_node_key: "after_quote",
+        },
+      },
+      {
+        node_key: "quote_75kw",
+        node_type: "send_message",
+        config: {
+          text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 7.5 kW On-Grid*",
+          next_node_key: "after_quote",
+        },
+      },
+    ];
+
+    for (const legNode of LEGACY_SOLAR_FALLBACK_NODES) {
+      if (!map.has(legNode.node_key)) {
+        map.set(legNode.node_key, {
+          id: `legacy-${legNode.node_key}`,
+          flow_id: flowId,
+          node_key: legNode.node_key,
+          node_type: legNode.node_type as any,
+          config: legNode.config,
+          position_x: 0,
+          position_y: 0,
+          created_at: new Date().toISOString(),
+        });
+      }
+    }
   }
 
   return map;

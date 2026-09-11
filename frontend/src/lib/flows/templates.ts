@@ -569,107 +569,6 @@ const SOLAR_ASSISTANT: FlowTemplate = {
         next_node_key: "after_quote",
       } as SendMessageNodeConfig,
     },
-    // Backward-compatibility aliases for any in-flight runs
-    {
-      node_key: "create_lead_2kw",
-      node_type: "create_lead",
-      config: {
-        full_name: "{{vars.name}}",
-        email: "{{vars.email}}",
-        state: "Uttar Pradesh",
-        city: "{{vars.city}}",
-        pincode: "{{vars.pincode}}",
-        property_type: "Residential",
-        monthly_bill: "1500",
-        roof_type: "RCC",
-        timeline: "Not decided",
-        source: "whatsapp_flow",
-        next_node_key: "quote_2kw",
-      } as CreateLeadNodeConfig,
-    },
-    {
-      node_key: "create_lead_3kw",
-      node_type: "create_lead",
-      config: {
-        full_name: "{{vars.name}}",
-        email: "{{vars.email}}",
-        state: "Uttar Pradesh",
-        city: "{{vars.city}}",
-        pincode: "{{vars.pincode}}",
-        property_type: "Residential",
-        monthly_bill: "2500",
-        roof_type: "RCC",
-        timeline: "Not decided",
-        source: "whatsapp_flow",
-        next_node_key: "quote_3kw",
-      } as CreateLeadNodeConfig,
-    },
-    {
-      node_key: "create_lead_5kw",
-      node_type: "create_lead",
-      config: {
-        full_name: "{{vars.name}}",
-        email: "{{vars.email}}",
-        state: "Uttar Pradesh",
-        city: "{{vars.city}}",
-        pincode: "{{vars.pincode}}",
-        property_type: "Residential",
-        monthly_bill: "4000",
-        roof_type: "RCC",
-        timeline: "Not decided",
-        source: "whatsapp_flow",
-        next_node_key: "quote_5kw",
-      } as CreateLeadNodeConfig,
-    },
-    {
-      node_key: "create_lead_75kw",
-      node_type: "create_lead",
-      config: {
-        full_name: "{{vars.name}}",
-        email: "{{vars.email}}",
-        state: "Uttar Pradesh",
-        city: "{{vars.city}}",
-        pincode: "{{vars.pincode}}",
-        property_type: "Residential",
-        monthly_bill: "5000",
-        roof_type: "RCC",
-        timeline: "Not decided",
-        source: "whatsapp_flow",
-        next_node_key: "quote_75kw",
-      } as CreateLeadNodeConfig,
-    },
-    {
-      node_key: "quote_2kw",
-      node_type: "send_message",
-      config: {
-        text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 2 kW On-Grid*",
-        next_node_key: "after_quote",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "quote_3kw",
-      node_type: "send_message",
-      config: {
-        text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 3 kW On-Grid*",
-        next_node_key: "after_quote",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "quote_5kw",
-      node_type: "send_message",
-      config: {
-        text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 5 kW On-Grid*",
-        next_node_key: "after_quote",
-      } as SendMessageNodeConfig,
-    },
-    {
-      node_key: "quote_75kw",
-      node_type: "send_message",
-      config: {
-        text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 7.5 kW On-Grid*",
-        next_node_key: "after_quote",
-      } as SendMessageNodeConfig,
-    },
     {
       node_key: "after_quote",
       node_type: "send_buttons",
@@ -814,10 +713,51 @@ const SOLAR_QUOTE_FLOW: FlowTemplate = {
     },
     ...SOLAR_ASSISTANT.nodes.filter(
       (n) =>
-        n.node_key !== "start" &&
-        n.node_key !== "welcome" &&
-        n.node_key !== "check_lead_info",
+        [
+          "ask_name",
+          "ask_phone",
+          "ask_email",
+          "ask_state",
+          "ask_city",
+          "ask_pincode",
+          "ask_property_type",
+          "ask_bill",
+          "ask_roof_type",
+          "ask_timeline",
+          "create_lead",
+          "quote_summary",
+          "after_quote",
+          "handoff",
+          "end",
+        ].includes(n.node_key),
     ),
+    {
+      node_key: "process_msg",
+      node_type: "send_message",
+      config: {
+        text: "Solar lagane ka pura process aisa hai:\n\n1. Free site survey & bill verification (15 min call or visit)\n2. Custom quotation + subsidy calculation, shared on WhatsApp\n3. Aap approve → documentation & DISCOM subsidy registration\n4. Installation, net meter & DISCOM inspection (7–15 days)\n5. System commissioning + subsidy directly credited to your bank\n\nTotal time: aksar 2-4 hafte. Aap sirf document sign karte hain, baaki hum sambhalte hain.",
+        next_node_key: "after_process_buttons",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "after_process_buttons",
+      node_type: "send_buttons",
+      config: {
+        text: "Aur kuch chahiye?",
+        buttons: [
+          {
+            reply_id: "info_agent",
+            title: "Agent se baat",
+            next_node_key: "handoff",
+          },
+          {
+            reply_id: "info_done",
+            title: "Theek hai",
+            next_node_key: "end",
+          },
+        ],
+      } as SendButtonsNodeConfig,
+    },
   ],
 };
 
