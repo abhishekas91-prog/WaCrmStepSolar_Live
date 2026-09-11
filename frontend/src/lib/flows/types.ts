@@ -39,6 +39,8 @@ export interface SendButtonsNodeConfig {
   /** Optional header / footer lines around the buttons. */
   header_text?: string;
   footer_text?: string;
+  /** Optional variable key to store the tapped option title in flow_runs.vars. */
+  var_key?: string;
   /** 1-3 buttons; Meta cap enforced in meta-api validation. */
   buttons: Array<{
     /** Stable id sent back by Meta when this button is tapped. */
@@ -56,6 +58,8 @@ export interface SendListNodeConfig {
   button_label: string;
   header_text?: string;
   footer_text?: string;
+  /** Optional variable key to store the tapped option title in flow_runs.vars. */
+  var_key?: string;
   /** 1-10 rows TOTAL across sections; cap enforced in meta-api. */
   sections: Array<{
     title?: string;

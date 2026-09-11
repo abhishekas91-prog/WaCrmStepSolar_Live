@@ -43,6 +43,7 @@ import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import { createCrmLead } from "@/lib/solar/crm-lookup";
+import { getFlowTemplate } from "./templates";
 import {
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
@@ -259,6 +260,35 @@ async function loadAllNodes(
   for (const row of (data ?? []) as FlowNodeRow[]) {
     map.set(row.node_key, row);
   }
+
+  // If this flow relates to solar assistant, ensure all standard solar nodes exist
+  // so existing active flows never hit node_not_found on newly introduced quote steps.
+  const { data: flow } = await db
+    .from("flows")
+    .select("name")
+    .eq("id", flowId)
+    .maybeSingle();
+  const flowName = (flow as { name?: string } | null)?.name?.toLowerCase() ?? "";
+  if (flowName.includes("solar") || map.has("welcome")) {
+    const template = getFlowTemplate("solar_assistant");
+    if (template) {
+      for (const tNode of template.nodes) {
+        if (!map.has(tNode.node_key)) {
+          map.set(tNode.node_key, {
+            id: `template-${tNode.node_key}`,
+            flow_id: flowId,
+            node_key: tNode.node_key,
+            node_type: tNode.node_type as any,
+            config: tNode.config as Record<string, unknown>,
+            position_x: 0,
+            position_y: 0,
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+    }
+  }
+
   return map;
 }
 
@@ -774,8 +804,13 @@ async function advanceFromNodeKey(
           .eq("id", run.contact_id!)
           .eq("account_id", run.account_id)
           .maybeSingle();
-        const phone10 =
+        const varPhone =
+          typeof run.vars?.phone === "string"
+            ? run.vars.phone.replace(/\D/g, "").slice(-10)
+            : "";
+        const contactPhone =
           typeof contact?.phone === "string" ? contact.phone.slice(-10) : "";
+        const phone10 = varPhone || contactPhone;
         const parsedBill = parseInt(
           interpolateVars(cfg.monthly_bill, run.vars),
           10,
@@ -1141,6 +1176,22 @@ async function handleReplyForActiveRun(
       currentNode.node_type === "send_list")
   ) {
     matched = matchReplyId(currentNode, message.reply_id, message.reply_title);
+    const cfg = currentNode.config as { var_key?: string };
+    if (matched && cfg?.var_key) {
+      const selectedValue = message.reply_title || message.reply_id;
+      const newVars = { ...(run.vars ?? {}), [cfg.var_key]: selectedValue };
+      const { error: varErr } = await db
+        .from("flow_runs")
+        .update({ vars: newVars })
+        .eq("id", run.id);
+      if (!varErr) {
+        run.vars = newVars;
+        await logEvent(db, run.id, "node_entered", currentNode.node_key, {
+          captured_key: cfg.var_key,
+          captured_value: selectedValue,
+        });
+      }
+    }
   } else if (
     message.kind === "text" &&
     currentNode.node_type === "collect_input"

@@ -415,55 +415,119 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
     const resolvedNext = hasName ? condCfg.true_next : condCfg.false_next;
     expect(resolvedNext).toBe("ask_name");
 
-    // 3. ask_name collects customer's name
+    // 1. ask_name (Full Name*)
     const askNameNode = template.nodes.find((n) => n.node_key === "ask_name");
     expect(askNameNode).toBeDefined();
     expect(askNameNode!.node_type).toBe("collect_input");
     expect((askNameNode!.config as any).var_key).toBe("name");
-    expect((askNameNode!.config as any).next_node_key).toBe("ask_email");
+    expect((askNameNode!.config as any).prompt_text).toContain("*Full Name*");
+    expect((askNameNode!.config as any).next_node_key).toBe("ask_phone");
 
-    // 4. ask_email interpolates customer's name
+    // 2. ask_phone (Contact Number*)
+    const askPhoneNode = template.nodes.find((n) => n.node_key === "ask_phone");
+    expect(askPhoneNode).toBeDefined();
+    expect(askPhoneNode!.node_type).toBe("collect_input");
+    expect((askPhoneNode!.config as any).var_key).toBe("phone");
+    expect((askPhoneNode!.config as any).prompt_text).toContain("*Contact Number*");
+    expect((askPhoneNode!.config as any).next_node_key).toBe("ask_email");
+
+    // 3. ask_email (Email Address*)
     const askEmailNode = template.nodes.find((n) => n.node_key === "ask_email");
     expect(askEmailNode).toBeDefined();
-    const emailPrompt = interpolateVars(
-      (askEmailNode!.config as any).prompt_text,
-      { name: "Rahul" },
-    );
-    expect(emailPrompt).toContain("Thanks Rahul!");
+    expect(askEmailNode!.node_type).toBe("collect_input");
+    expect((askEmailNode!.config as any).var_key).toBe("email");
+    expect((askEmailNode!.config as any).prompt_text).toContain("*Email Address*");
+    expect((askEmailNode!.config as any).next_node_key).toBe("ask_state");
 
-    // 5. Complete chain through ask_city -> ask_pincode -> ask_bill -> create_lead_3kw -> quote_3kw
+    // 4. ask_state (State*)
+    const askStateNode = template.nodes.find((n) => n.node_key === "ask_state");
+    expect(askStateNode).toBeDefined();
+    expect(askStateNode!.node_type).toBe("collect_input");
+    expect((askStateNode!.config as any).var_key).toBe("state");
+    expect((askStateNode!.config as any).prompt_text).toContain("*State*");
+    expect((askStateNode!.config as any).next_node_key).toBe("ask_city");
+
+    // 5. ask_city (City / Town*)
     const askCityNode = template.nodes.find((n) => n.node_key === "ask_city");
     expect(askCityNode).toBeDefined();
     expect(askCityNode!.node_type).toBe("collect_input");
+    expect((askCityNode!.config as any).var_key).toBe("city");
+    expect((askCityNode!.config as any).prompt_text).toContain("*City / Town*");
     expect((askCityNode!.config as any).next_node_key).toBe("ask_pincode");
 
+    // 6. ask_pincode (Pincode*)
     const askPincodeNode = template.nodes.find((n) => n.node_key === "ask_pincode");
     expect(askPincodeNode).toBeDefined();
     expect(askPincodeNode!.node_type).toBe("collect_input");
-    expect((askPincodeNode!.config as any).next_node_key).toBe("ask_bill");
+    expect((askPincodeNode!.config as any).var_key).toBe("pincode");
+    expect((askPincodeNode!.config as any).prompt_text).toContain("*Pincode*");
+    expect((askPincodeNode!.config as any).next_node_key).toBe("ask_property_type");
 
+    // 7. ask_property_type (Property Type*)
+    const askPropNode = template.nodes.find((n) => n.node_key === "ask_property_type");
+    expect(askPropNode).toBeDefined();
+    expect(askPropNode!.node_type).toBe("send_list");
+    expect((askPropNode!.config as any).var_key).toBe("property_type");
+    const propMatch = matchReplyId(
+      { node_type: "send_list", config: askPropNode!.config as any },
+      "prop_residential",
+    );
+    expect(propMatch).toBe("ask_bill");
+
+    // 8. ask_bill (Monthly Electricity Bill (₹)*)
     const askBillNode = template.nodes.find((n) => n.node_key === "ask_bill");
     expect(askBillNode).toBeDefined();
-    expect(askBillNode!.node_type).toBe("send_list");
-    const billMatch = matchReplyId(
-      { node_type: "send_list", config: askBillNode!.config as any },
-      "bill_1500_2500",
-    );
-    expect(billMatch).toBe("create_lead_3kw");
+    expect(askBillNode!.node_type).toBe("collect_input");
+    expect((askBillNode!.config as any).var_key).toBe("monthly_bill");
+    expect((askBillNode!.config as any).prompt_text).toContain("*Monthly Electricity Bill (₹)*");
+    expect((askBillNode!.config as any).next_node_key).toBe("ask_roof_type");
 
-    const createLeadNode = template.nodes.find((n) => n.node_key === "create_lead_3kw");
+    // 9. ask_roof_type (Roof Type & Space*)
+    const askRoofNode = template.nodes.find((n) => n.node_key === "ask_roof_type");
+    expect(askRoofNode).toBeDefined();
+    expect(askRoofNode!.node_type).toBe("send_list");
+    expect((askRoofNode!.config as any).var_key).toBe("roof_type");
+    const roofMatch = matchReplyId(
+      { node_type: "send_list", config: askRoofNode!.config as any },
+      "roof_large",
+    );
+    expect(roofMatch).toBe("ask_timeline");
+
+    // 10. ask_timeline (Aap Solar kab tak lagwana chahte hain?*)
+    const askTimelineNode = template.nodes.find((n) => n.node_key === "ask_timeline");
+    expect(askTimelineNode).toBeDefined();
+    expect(askTimelineNode!.node_type).toBe("send_buttons");
+    expect((askTimelineNode!.config as any).var_key).toBe("timeline");
+    const timelineMatch = matchReplyId(
+      { node_type: "send_buttons", config: askTimelineNode!.config as any },
+      "time_immediate",
+    );
+    expect(timelineMatch).toBe("create_lead");
+
+    // 11. create_lead (creates lead in CRM with all 10 fields)
+    const createLeadNode = template.nodes.find((n) => n.node_key === "create_lead");
     expect(createLeadNode).toBeDefined();
     expect(createLeadNode!.node_type).toBe("create_lead");
-    expect((createLeadNode!.config as any).next_node_key).toBe("quote_3kw");
+    expect((createLeadNode!.config as any).next_node_key).toBe("quote_summary");
 
-    const quoteNode = template.nodes.find((n) => n.node_key === "quote_3kw");
+    // 12. quote_summary (sends customized quote)
+    const quoteNode = template.nodes.find((n) => n.node_key === "quote_summary");
     expect(quoteNode).toBeDefined();
     expect(quoteNode!.node_type).toBe("send_message");
-    const quoteText = interpolateVars((quoteNode!.config as any).text, { name: "Rahul" });
-    expect(quoteText).toContain("3 kW On-Grid");
+    const quoteText = interpolateVars((quoteNode!.config as any).text, {
+      name: "Rahul",
+      monthly_bill: "4000",
+      city: "Lucknow",
+      state: "Uttar Pradesh",
+      property_type: "Residential",
+    });
+    expect(quoteText).toContain("Namaste Rahul ji!");
+    expect(quoteText).toContain("Recommended System");
+    expect(quoteText).toContain("PM Surya Ghar");
+    expect((quoteNode!.config as any).next_node_key).toBe("after_quote");
   });
 
-  it("skips lead questions directly to ask_bill if name is already present", async () => {
+  it("skips lead questions to quote_summary if details are already present", async () => {
     const template = getFlowTemplate("solar_assistant");
     expect(template).not.toBeNull();
     const conditionNode = template!.nodes.find((n) => n.node_key === "check_lead_info");
@@ -475,7 +539,15 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
 
     const condCfg = conditionNode!.config as ConditionNodeConfig;
     const nextKey = hasName ? condCfg.true_next : condCfg.false_next;
-    expect(nextKey).toBe("ask_bill");
+    expect(nextKey).toBe("quote_summary");
+  });
+
+  it("registers standalone solar_quote_flow template", () => {
+    const quoteFlow = getFlowTemplate("solar_quote_flow");
+    expect(quoteFlow).not.toBeNull();
+    expect(quoteFlow!.slug).toBe("solar_quote_flow");
+    expect(quoteFlow!.entry_node_id).toBe("start");
+    expect(quoteFlow!.nodes.length).toBeGreaterThanOrEqual(12);
   });
 });
 

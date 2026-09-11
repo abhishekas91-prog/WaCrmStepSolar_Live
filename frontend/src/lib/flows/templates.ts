@@ -365,11 +365,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
         subject: "var",
         subject_key: "name",
         operator: "present",
-        // Already answered name/email/city/pincode earlier in this
-        // same conversation (customer came back via "Aur jaankari" or
-        // "Process dekhein" after already getting a quote) → skip
-        // straight to the bill-slab menu instead of re-asking.
-        true_next: "ask_bill",
+        true_next: "quote_summary",
         false_next: "ask_name",
       } as ConditionNodeConfig,
     },
@@ -378,8 +374,18 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       node_type: "collect_input",
       config: {
         prompt_text:
-          "Great! Quote ke liye kuch details chahiye.\n\nAapka poora naam?",
+          "Great! Rooftop Solar Quote ke liye kripya kuch zaroori jaankari share karein:\n\n*Full Name*\n(Your full name)\n\nApna poora naam likhkar bhejein:",
         var_key: "name",
+        next_node_key: "ask_phone",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "ask_phone",
+      node_type: "collect_input",
+      config: {
+        prompt_text:
+          "Dhanyawad {{vars.name}} ji!\n\n*Contact Number*\n(10-digit mobile number)\n\nApna 10-digit mobile number likhein:",
+        var_key: "phone",
         next_node_key: "ask_email",
       } as CollectInputNodeConfig,
     },
@@ -387,8 +393,19 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       node_key: "ask_email",
       node_type: "collect_input",
       config: {
-        prompt_text: "Thanks {{vars.name}}! Aapka email address?",
+        prompt_text:
+          "*Email Address*\n(you@example.com)\n\nApna email address likhein:",
         var_key: "email",
+        next_node_key: "ask_state",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "ask_state",
+      node_type: "collect_input",
+      config: {
+        prompt_text:
+          "*State*\n(e.g. Uttar Pradesh / Bihar)\n\nAap kis state / rajya se hain?",
+        var_key: "state",
         next_node_key: "ask_city",
       } as CollectInputNodeConfig,
     },
@@ -396,7 +413,8 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       node_key: "ask_city",
       node_type: "collect_input",
       config: {
-        prompt_text: "Aap kis city/qasbe mein rehte hain?",
+        prompt_text:
+          "*City / Town*\n(Your city / town)\n\nApne city ya town ka naam likhein:",
         var_key: "city",
         next_node_key: "ask_pincode",
       } as CollectInputNodeConfig,
@@ -405,51 +423,153 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       node_key: "ask_pincode",
       node_type: "collect_input",
       config: {
-        prompt_text: "Aur 6-digit pincode?",
+        prompt_text:
+          "*Pincode*\n(6-digit pincode)\n\nApna 6-digit area pincode likhein:",
         var_key: "pincode",
-        next_node_key: "ask_bill",
+        next_node_key: "ask_property_type",
       } as CollectInputNodeConfig,
     },
     {
-      node_key: "ask_bill",
+      node_key: "ask_property_type",
       node_type: "send_list",
       config: {
-        text: "Sahi system batane ke liye apna *monthly electricity bill* choose karein.",
-        button_label: "Bill choose karein",
-        footer_text: "Approx monthly bill (rupaye).",
+        text: "*Property Type*\nKripya apna property type chunein:",
+        button_label: "Property Type",
+        var_key: "property_type",
         sections: [
           {
-            title: "Monthly bill",
+            title: "Property Type",
             rows: [
               {
-                reply_id: "bill_lt_1500",
-                title: "1500 se kam",
-                description: "Chhota ghar — ~2 kW system",
-                next_node_key: "create_lead_2kw",
+                reply_id: "prop_residential",
+                title: "Residential",
+                description: "Residential (Ghar / Kothi)",
+                next_node_key: "ask_bill",
               },
               {
-                reply_id: "bill_1500_2500",
-                title: "1500 se 2500",
-                description: "Typical home — ~3 kW system",
-                next_node_key: "create_lead_3kw",
+                reply_id: "prop_commercial",
+                title: "Commercial / Office",
+                description: "Commercial / Office",
+                next_node_key: "ask_bill",
               },
               {
-                reply_id: "bill_2500_4000",
-                title: "2500 se 4000",
-                description: "Bada ghar — ~5 kW system",
-                next_node_key: "create_lead_5kw",
+                reply_id: "prop_industrial",
+                title: "Industrial / Factory",
+                description: "Industrial / Factory",
+                next_node_key: "ask_bill",
               },
               {
-                reply_id: "bill_gt_4000",
-                title: "4000 se zyada",
-                description: "High consumption — ~7.5 kW",
-                next_node_key: "create_lead_75kw",
+                reply_id: "prop_agricultural",
+                title: "Agricultural / Pump",
+                description: "Agricultural / Pump",
+                next_node_key: "ask_bill",
               },
             ],
           },
         ],
       } as SendListNodeConfig,
     },
+    {
+      node_key: "ask_bill",
+      node_type: "collect_input",
+      config: {
+        prompt_text:
+          "*Monthly Electricity Bill (₹)*\n(e.g. 4000)\n\nApna lagbhag maheene ka bijli bill amount rupaye mein likhein (jaise: 4000):",
+        var_key: "monthly_bill",
+        next_node_key: "ask_roof_type",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "ask_roof_type",
+      node_type: "send_list",
+      config: {
+        text: "*Roof Type & Space*\nApni chhat (roof) ka type aur space chunein:",
+        button_label: "Roof Space",
+        var_key: "roof_type",
+        sections: [
+          {
+            title: "Roof Type & Space",
+            rows: [
+              {
+                reply_id: "roof_rented",
+                title: "Rented / No Roof",
+                description: "Rented Roof / No Roof",
+                next_node_key: "ask_timeline",
+              },
+              {
+                reply_id: "roof_small",
+                title: "Small Space",
+                description: "Small Space (100–200 sq. ft.)",
+                next_node_key: "ask_timeline",
+              },
+              {
+                reply_id: "roof_medium",
+                title: "Medium Space",
+                description: "Medium Space (300–500 sq. ft.)",
+                next_node_key: "ask_timeline",
+              },
+              {
+                reply_id: "roof_large",
+                title: "Large Open Roof",
+                description: "Large Open Roof (500+ sq. ft.)",
+                next_node_key: "ask_timeline",
+              },
+            ],
+          },
+        ],
+      } as SendListNodeConfig,
+    },
+    {
+      node_key: "ask_timeline",
+      node_type: "send_buttons",
+      config: {
+        text: "*Aap Solar kab tak lagwana chahte hain?*\nKripya apna expected timeline chunein:",
+        var_key: "timeline",
+        buttons: [
+          {
+            reply_id: "time_immediate",
+            title: "Immediately",
+            next_node_key: "create_lead",
+          },
+          {
+            reply_id: "time_1_2_months",
+            title: "Within 1–2 months",
+            next_node_key: "create_lead",
+          },
+          {
+            reply_id: "time_info_only",
+            title: "Sirf jaankari",
+            next_node_key: "create_lead",
+          },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "create_lead",
+      node_type: "create_lead",
+      config: {
+        full_name: "{{vars.name}}",
+        email: "{{vars.email}}",
+        state: "{{vars.state}}",
+        city: "{{vars.city}}",
+        pincode: "{{vars.pincode}}",
+        property_type: "{{vars.property_type}}",
+        monthly_bill: "{{vars.monthly_bill}}",
+        roof_type: "{{vars.roof_type}}",
+        timeline: "{{vars.timeline}}",
+        source: "whatsapp_flow",
+        next_node_key: "quote_summary",
+      } as CreateLeadNodeConfig,
+    },
+    {
+      node_key: "quote_summary",
+      node_type: "send_message",
+      config: {
+        text: "Namaste {{vars.name}} ji!\nAapki rooftop solar enquiry safalta-poorvak darj ho gayi hai.\n\n*Aapki Details:*\n• Name: {{vars.name}}\n• Contact: {{vars.phone}}\n• Email: {{vars.email}}\n• Location: {{vars.city}}, {{vars.state}} ({{vars.pincode}})\n• Property: {{vars.property_type}}\n• Monthly Bill: ₹{{vars.monthly_bill}}\n• Roof Space: {{vars.roof_type}}\n• Timeline: {{vars.timeline}}\n\n*Estimated Solar Sizing & Pricing:*\nAapke monthly bill (~₹{{vars.monthly_bill}}) ke aadhar par hum recommend karte hain:\n• Recommended System: ~3 kW to 5 kW On-Grid\n• Estimated Cost: ₹55,000/kW (5% GST alag se)\n• Central Subsidy (PM Surya Ghar): ₹78,000 tak seedha aapke bank account me!\n• Expected Savings: ₹2,500 - ₹4,500 tak har mahine bijli bill par!\n• Payback Period: ~3 to 4 saal me poora paisa vasool!\n\nHamare Senior Solar Engineer jald hi aapse call/WhatsApp par sampark karke exact site survey aur customized quotation share karenge.",
+        next_node_key: "after_quote",
+      } as SendMessageNodeConfig,
+    },
+    // Backward-compatibility aliases for any in-flight runs
     {
       node_key: "create_lead_2kw",
       node_type: "create_lead",
@@ -522,7 +642,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       node_key: "quote_2kw",
       node_type: "send_message",
       config: {
-        text: "Namaste!\nAapke monthly bill ~₹1,500 ke hisaab se hum recommend karte hain:\n\n*Recommended System: 2 kW On-Grid*\n\nCost Estimate:\n• System + Installation: ₹1,10,000\n• GST (5%): ₹5,500\n• Total: ₹1,15,500\n• Subsidy (Central PM Surya Ghar): -₹60,000\n• *Net Payable: ₹55,500*\n\nAapka monthly bill lagbhag *₹1,500* bach sakta hai.\nPayback period: ~37 months.\n\nNumbers default StepSolar pricing (₹55,000/kW) se hain. Site survey ke baad exact quotation milta hai.",
+        text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 2 kW On-Grid*",
         next_node_key: "after_quote",
       } as SendMessageNodeConfig,
     },
@@ -530,7 +650,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       node_key: "quote_3kw",
       node_type: "send_message",
       config: {
-        text: "Namaste!\nAapke monthly bill ~₹2,500 ke hisaab se hum recommend karte hain:\n\n*Recommended System: 3 kW On-Grid*\n\nCost Estimate:\n• System + Installation: ₹1,65,000\n• GST (5%): ₹8,250\n• Total: ₹1,73,250\n• Subsidy (Central PM Surya Ghar): -₹78,000\n• *Net Payable: ₹95,250*\n\nAapka monthly bill lagbhag *₹2,500* bach sakta hai.\nPayback period: ~38 months.\n\nNumbers default StepSolar pricing (₹55,000/kW) se hain. Site survey ke baad exact quotation milta hai.",
+        text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 3 kW On-Grid*",
         next_node_key: "after_quote",
       } as SendMessageNodeConfig,
     },
@@ -538,7 +658,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       node_key: "quote_5kw",
       node_type: "send_message",
       config: {
-        text: "Namaste!\nAapke monthly bill ~₹4,000 ke hisaab se hum recommend karte hain:\n\n*Recommended System: 5 kW On-Grid*\n\nCost Estimate:\n• System + Installation: ₹2,75,000\n• GST (5%): ₹13,750\n• Total: ₹2,88,750\n• Subsidy (Central PM Surya Ghar): -₹78,000\n• *Net Payable: ₹2,10,750*\n\nAapka monthly bill lagbhag *₹4,000* bach sakta hai.\nPayback period: ~53 months.\n\nNumbers default StepSolar pricing (₹55,000/kW) se hain. Site survey ke baad exact quotation milta hai.",
+        text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 5 kW On-Grid*",
         next_node_key: "after_quote",
       } as SendMessageNodeConfig,
     },
@@ -546,7 +666,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       node_key: "quote_75kw",
       node_type: "send_message",
       config: {
-        text: "Namaste!\nAapke monthly bill ₹4,000+ ke hisaab se hum recommend karte hain:\n\n*Recommended System: 7.5 kW On-Grid*\n\nCost Estimate:\n• System + Installation: ₹4,12,500\n• GST (5%): ₹20,625\n• Total: ₹4,33,125\n• Subsidy (Central PM Surya Ghar): -₹78,000\n• *Net Payable: ₹3,55,125*\n\nAapka monthly bill lagbhag *₹5,000* bach sakta hai.\nPayback period: ~71 months.\n\nNumbers default StepSolar pricing (₹55,000/kW) se hain. Site survey ke baad exact quotation milta hai.",
+        text: "Namaste!\nAapke monthly bill ke hisaab se hum recommend karte hain:\n*Recommended System: 7.5 kW On-Grid*",
         next_node_key: "after_quote",
       } as SendMessageNodeConfig,
     },
@@ -662,8 +782,48 @@ const SOLAR_ASSISTANT: FlowTemplate = {
   ],
 };
 
+// ============================================================
+// 5. Solar Quote & Enquiry Flow — standalone 10-step quotation
+// ============================================================
+const SOLAR_QUOTE_FLOW: FlowTemplate = {
+  slug: "solar_quote_flow",
+  name: "Solar Quote & Enquiry",
+  description:
+    "10-question lead capture and solar quotation flow. Collects name, phone, email, state, city, pincode, property type, monthly bill, roof space, and timeline, creates a CRM lead and delivers estimated quotation.",
+  icon: "Sun",
+  trigger_type: "keyword",
+  trigger_config: {
+    keywords: [
+      "quote",
+      "quotation",
+      "solar quote",
+      "price",
+      "rate",
+      "cost",
+      "daam",
+      "enquiry",
+    ],
+    match_type: "contains",
+  },
+  entry_node_id: "start",
+  nodes: [
+    {
+      node_key: "start",
+      node_type: "start",
+      config: { next_node_key: "ask_name" },
+    },
+    ...SOLAR_ASSISTANT.nodes.filter(
+      (n) =>
+        n.node_key !== "start" &&
+        n.node_key !== "welcome" &&
+        n.node_key !== "check_lead_info",
+    ),
+  ],
+};
+
 const TEMPLATES: Record<string, FlowTemplate> = {
   solar_assistant: SOLAR_ASSISTANT,
+  solar_quote_flow: SOLAR_QUOTE_FLOW,
   welcome_menu: WELCOME_MENU,
   faq_bot: FAQ_BOT,
   lead_capture: LEAD_CAPTURE,
