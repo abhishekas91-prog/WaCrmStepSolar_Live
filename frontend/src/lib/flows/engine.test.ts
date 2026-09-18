@@ -400,6 +400,11 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
     expect(nextKey).toBe("ask_name");
 
     // 1. ask_name (Full Name*)
+    const welcomeForm = template.nodes.find((n) => n.node_key === "welcome_form");
+    expect(welcomeForm).toBeDefined();
+    expect(welcomeForm!.node_type).toBe("send_message");
+    expect((welcomeForm!.config as any).next_node_key).toBe("ask_name");
+
     const askNameNode = template.nodes.find((n) => n.node_key === "ask_name");
     expect(askNameNode).toBeDefined();
     expect(askNameNode!.node_type).toBe("collect_input");
@@ -517,6 +522,7 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
     expect(assistant!.slug).toBe("solar_assistant");
     expect(assistant!.entry_node_id).toBe("start");
     const nodeKeys = assistant!.nodes.map((n) => n.node_key);
+    expect(nodeKeys).toContain("welcome_form");
     expect(nodeKeys).toContain("ask_name");
     expect(nodeKeys).toContain("ask_phone");
     expect(nodeKeys).toContain("ask_email");

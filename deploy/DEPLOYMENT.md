@@ -74,7 +74,8 @@ Build context is `frontend/` (its own Dockerfile). Set:
 - Build args: `NEXT_PUBLIC_SITE_URL=https://whatsapp.stepsolar.in`,
   `NEXT_PUBLIC_APP_LOCALE=en`
 - Runtime env: `MONGO_URL`, `DB_NAME=stepsolar`, `JWT_SECRET`,
-  `ENCRYPTION_KEY`, `META_APP_SECRET`, `SEED_INDEXES_ON_START=1`
+  `ENCRYPTION_KEY`, `META_APP_SECRET`, `SEED_INDEXES_ON_START=1`,
+  `STEPSOLAR_CRM_BASE_URL`, `STEPSOLAR_CRM_SERVICE_KEY`
 - Health check: `GET /login`, port 3000.
 
 ---
@@ -93,6 +94,8 @@ Build context is `frontend/` (its own Dockerfile). Set:
 | `SEED_INDEXES_ON_START` | runtime | `1` = ensure indexes on boot |
 | `NEXT_PUBLIC_SITE_URL` | build | canonical URL, inlined into client bundle |
 | `NEXT_PUBLIC_APP_LOCALE` | build | default `en` |
+| `STEPSOLAR_CRM_BASE_URL` | runtime | default `https://stepsolar-backend.onrender.com/api` |
+| `STEPSOLAR_CRM_SERVICE_KEY` | runtime | shared secret for `GET /leads/lookup` |
 
 ---
 

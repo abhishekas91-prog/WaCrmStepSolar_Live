@@ -388,6 +388,11 @@ export function isGreeting(text: string): boolean {
   )
 }
 
+/** True when this inbound is the customer's first text in a 24-hour window. */
+export function isFirstMessageIn24h(priorCountInWindow: number | null | undefined): boolean {
+  return (priorCountInWindow ?? 0) === 0
+}
+
 /**
  * Checks whether this conversation was sent a CRM status summary within the last 24 hours.
  * Ensures an existing lead only receives the status update message at most once per 24 hours on greeting.
@@ -747,12 +752,20 @@ async function processMessage(
   // BEFORE we insert, so the count is accurate. Covers the case where
   // the contact row already exists (manual add / CSV import) but they've
   // never messaged us before — which new_contact_created wouldn't catch.
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const { count: priorCustomerMsgCount } = await supabaseAdmin()
     .from('messages')
     .select('id', { count: 'exact', head: true })
     .eq('conversation_id', conversation.id)
     .eq('sender_type', 'customer')
+  const { count: recentCustomerMsgCount } = await supabaseAdmin()
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('conversation_id', conversation.id)
+    .eq('sender_type', 'customer')
+    .gte('created_at', since24h)
   const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0
+  const isFirstInboundIn24h = (recentCustomerMsgCount ?? 0) === 0
 
   // Idempotent insert. Meta retries webhook deliveries (a slow ack, a
   // transient 5xx), and each retry replays the exact same message.id. The
@@ -831,14 +844,15 @@ async function processMessage(
   // trigger installed in migration 003).
   await flagBroadcastReplyIfAny(accountId, contactRecord.id)
 
-  // A greeting is the CRM handoff point. Returning customers get their live
-  // lead information first (at most once every 24 hours); new customers or returning
-  // customers on subsequent messages continue into Solar Assistant.
+  // First inbound in 24 hours is the CRM handoff point:
+  //   - existing StepSolar-CRM lead → send live status (once per 24h)
+  //   - no lead → start the lead-creation form (preferLeadForm)
   // Do this before flow dispatch so an existing lead cannot receive duplicate
   // status spam within 24 hours.
   const inboundText = contentText ?? message.text?.body ?? ''
   let crmGreetingHandled = false
-  if (message.type === 'text' && isGreeting(inboundText)) {
+  let preferLeadForm = false
+  if (message.type === 'text' && isFirstInboundIn24h) {
     const lead = await lookupCrmLead(senderPhone.slice(-10))
     if (lead) {
       const alreadySent = await hasRecentCrmStatusReply(conversation.id)
@@ -856,6 +870,8 @@ async function processMessage(
           console.error('[crm-lookup] greeting reply failed:', err)
         }
       }
+    } else {
+      preferLeadForm = true
     }
   }
 
@@ -902,12 +918,13 @@ async function processMessage(
             reply_title: contentText ?? '',
             meta_message_id: message.id,
           }
-        : {
-            kind: 'text',
-            text: contentText ?? message.text?.body ?? '',
-            meta_message_id: message.id,
-          },
+          : {
+              kind: 'text',
+              text: contentText ?? message.text?.body ?? '',
+              meta_message_id: message.id,
+            },
     isFirstInboundMessage,
+    preferLeadForm,
   })
   const flowConsumed = flowResult.consumed
 

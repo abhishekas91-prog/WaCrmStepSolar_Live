@@ -344,6 +344,14 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       config: { next_node_key: "welcome" },
     },
     {
+      node_key: "welcome_form",
+      node_type: "send_message",
+      config: {
+        text: "Namaste! StepSolar Energy me aapka swagat hai.\n\nAapke number par CRM me koi solar enquiry nahi mili. Rooftop solar quotation ke liye yeh short form fill karein — naam, city, bill aur roof — taaki hamari team aapko sahi quote de sake.",
+        next_node_key: "ask_name",
+      } as SendMessageNodeConfig,
+    },
+    {
       node_key: "welcome",
       node_type: "send_buttons",
       config: {
@@ -491,7 +499,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
             rows: [
               {
                 reply_id: "roof_rented",
-                title: "Rented / No Roof",
+                title: "Rented Roof / No Roof",
                 description: "Rented Roof / No Roof",
                 next_node_key: "ask_timeline",
               },
@@ -522,7 +530,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
       node_key: "ask_timeline",
       node_type: "send_buttons",
       config: {
-        text: "*Aap Solar kab tak lagwana chahte hain?*\nKripya apna expected timeline chunein:",
+        text: "*Aap Solar kab tak lagwana chahte hain?*\nKripya apna expected timeline chunein:\n\n1. Immediately\n2. Within 1–2 months\n3. Sirf jankari aur quotation chahiye",
         var_key: "timeline",
         buttons: [
           {
@@ -537,7 +545,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
           },
           {
             reply_id: "time_info_only",
-            title: "Sirf jaankari",
+            title: "Info + quotation",
             next_node_key: "create_lead",
           },
         ],

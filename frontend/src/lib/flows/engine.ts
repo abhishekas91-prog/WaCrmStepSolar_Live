@@ -562,11 +562,76 @@ async function isDuplicateInbound(
   return (count ?? 0) > 0;
 }
 
+async function ensureSolarAssistantFlow(
+  db: AdminClient,
+  accountId: string,
+  existing: FlowRow[],
+): Promise<FlowRow | null> {
+  const solarFlow = existing.find(
+    (f) =>
+      f.name?.toLowerCase().includes("solar") ||
+      f.name?.toLowerCase().includes("assistant"),
+  );
+  if (solarFlow) {
+    if (solarFlow.status !== "active") {
+      await db
+        .from("flows")
+        .update({ status: "active", updated_at: new Date().toISOString() })
+        .eq("id", solarFlow.id);
+      solarFlow.status = "active";
+    }
+    return solarFlow;
+  }
+
+  const template = getFlowTemplate("solar_assistant");
+  if (!template) return null;
+  const { data: cfg } = await db
+    .from("whatsapp_config")
+    .select("user_id")
+    .eq("account_id", accountId)
+    .limit(1)
+    .maybeSingle();
+  const userId = (cfg as { user_id?: string } | null)?.user_id;
+  if (!userId) return null;
+
+  console.info(
+    `[flows] Auto-seeding template "solar_assistant" for account ${accountId}`,
+  );
+  const { data: createdFlow } = await db
+    .from("flows")
+    .insert({
+      user_id: userId,
+      account_id: accountId,
+      name: template.name,
+      description: template.description,
+      status: "active",
+      trigger_type: template.trigger_type,
+      trigger_config: template.trigger_config,
+      entry_node_id: template.entry_node_id,
+    })
+    .select()
+    .maybeSingle();
+
+  if (!createdFlow) return null;
+  if (template.nodes.length > 0) {
+    await db.from("flow_nodes").insert(
+      template.nodes.map((n) => ({
+        flow_id: (createdFlow as { id: string }).id,
+        node_key: n.node_key,
+        node_type: n.node_type,
+        config: n.config,
+      })),
+    );
+  }
+  return createdFlow as FlowRow;
+}
+
 async function findEntryFlow(
   db: AdminClient,
   accountId: string,
   message: ParsedInbound,
   isFirstInbound: boolean,
+  forceSolarAssistant = false,
 ): Promise<FlowRow | null> {
   // Only text messages can match an entry trigger. Interactive replies
   // are responses to existing prompts; they never start a new flow.
@@ -583,6 +648,13 @@ async function findEntryFlow(
     .order("created_at", { ascending: true });
 
   const typed = (flows as FlowRow[] | null) ?? [];
+
+  // First inbound in 24h with no CRM lead → always open Solar Assistant
+  // at the lead-capture form (see startNewRun + preferLeadForm).
+  if (forceSolarAssistant) {
+    const forced = await ensureSolarAssistantFlow(db, accountId, typed);
+    if (forced) return forced;
+  }
 
   // Check active flows first with keyword trigger
   const activeFlows = typed.filter((f) => f.status === "active");
@@ -668,68 +740,8 @@ async function findEntryFlow(
       }
     }
 
-    // Look for any solar flow in DB
-    const solarFlow = typed.find(
-      (f) =>
-        f.name?.toLowerCase().includes("solar") ||
-        f.name?.toLowerCase().includes("assistant"),
-    );
-    if (solarFlow) {
-      if (solarFlow.status !== "active") {
-        await db
-          .from("flows")
-          .update({ status: "active", updated_at: new Date().toISOString() })
-          .eq("id", solarFlow.id);
-        solarFlow.status = "active";
-      }
-      return solarFlow;
-    }
-
-    // Fallback: auto-seed the template into the database for this account
-    const targetSlug = "solar_assistant";
-    const template = getFlowTemplate(targetSlug);
-    if (template) {
-      const { data: cfg } = await db
-        .from("whatsapp_config")
-        .select("user_id")
-        .eq("account_id", accountId)
-        .limit(1)
-        .maybeSingle();
-      const userId = (cfg as { user_id?: string } | null)?.user_id;
-      if (userId) {
-        console.info(
-          `[flows] Auto-seeding template "${targetSlug}" for account ${accountId}`,
-        );
-        const { data: createdFlow } = await db
-          .from("flows")
-          .insert({
-            user_id: userId,
-            account_id: accountId,
-            name: template.name,
-            description: template.description,
-            status: "active",
-            trigger_type: template.trigger_type,
-            trigger_config: template.trigger_config,
-            entry_node_id: template.entry_node_id,
-          })
-          .select()
-          .maybeSingle();
-
-        if (createdFlow) {
-          if (template.nodes.length > 0) {
-            await db.from("flow_nodes").insert(
-              template.nodes.map((n) => ({
-                flow_id: (createdFlow as any).id,
-                node_key: n.node_key,
-                node_type: n.node_type,
-                config: n.config,
-              })),
-            );
-          }
-          return createdFlow as FlowRow;
-        }
-      }
-    }
+    const solarFlow = await ensureSolarAssistantFlow(db, accountId, typed);
+    if (solarFlow) return solarFlow;
   }
 
   return null;
@@ -1448,6 +1460,7 @@ export async function dispatchInboundToFlows(
       input.accountId,
       input.message,
       input.isFirstInboundMessage,
+      input.preferLeadForm === true,
     );
     if (!flow || !flow.entry_node_id) {
       return { consumed: false, outcome: "no_match" };
@@ -1730,9 +1743,14 @@ async function startNewRun(
     );
 
   const startNodeKey =
-    isDirectQuote && nodes.has("ask_name")
-      ? "ask_name"
-      : flow.entry_node_id || "start";
+    input.preferLeadForm &&
+    (nodes.has("welcome_form") || !!findTemplateNode("welcome_form"))
+      ? "welcome_form"
+      : input.preferLeadForm && nodes.has("ask_name")
+        ? "ask_name"
+        : isDirectQuote && nodes.has("ask_name")
+          ? "ask_name"
+          : flow.entry_node_id || "start";
 
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as

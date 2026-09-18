@@ -95,9 +95,11 @@ export async function createCrmLead(
   input: CreateLeadInput,
 ): Promise<{ id: string; code: string } | null> {
   try {
+    const headers: Record<string, string> = { 'content-type': 'application/json' }
+    if (SERVICE_KEY) headers['X-Service-Key'] = SERVICE_KEY
     const res = await fetch(`${CRM_BASE}/leads`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify({ ...input, source: input.source ?? 'whatsapp_flow' }),
       signal: AbortSignal.timeout(8000),
     })

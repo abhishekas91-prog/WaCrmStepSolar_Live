@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
     // returns the row; a replayed delivery conflicts and returns [].
     messageUpsertResult: [{ id: 'msg-1' }] as { id: string }[],
     priorCustomerMsgCount: 0,
+    recentCustomerMsgCount: 0,
     conversation: { id: 'conv-1', unread_count: 0, account_id: 'acc-1' },
     upsertCalls: [] as { row: Record<string, unknown>; options: unknown }[],
     rpcCalls: [] as { name: string; args: Record<string, unknown> }[],
@@ -89,26 +90,32 @@ vi.mock('@/lib/mongo/compat', () => ({
         case 'messages':
           return {
             select: () => {
+              const q = {
+                sender: null as string | null,
+                usedGte: false,
+              }
               const chain: any = {
                 eq: (_col: string, val: string) => {
-                  if (val === 'bot') {
-                    const botChain: any = {
-                      gte: () => botChain,
-                      ilike: () =>
-                        Promise.resolve({
-                          count: h.state.recentBotMsgCount,
-                          error: null,
-                        }),
-                    }
-                    return botChain
-                  }
-                  return {
-                    eq: () =>
-                      Promise.resolve({
-                        count: h.state.priorCustomerMsgCount,
-                        error: null,
-                      }),
-                  }
+                  if (val === 'bot' || val === 'customer') q.sender = val
+                  return chain
+                },
+                gte: () => {
+                  q.usedGte = true
+                  return chain
+                },
+                ilike: () =>
+                  Promise.resolve({
+                    count: h.state.recentBotMsgCount,
+                    error: null,
+                  }),
+                then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
+                  const count =
+                    q.sender === 'bot'
+                      ? h.state.recentBotMsgCount
+                      : q.usedGte
+                        ? h.state.recentCustomerMsgCount
+                        : h.state.priorCustomerMsgCount
+                  return Promise.resolve({ count, error: null }).then(resolve, reject)
                 },
               }
               return chain
@@ -177,7 +184,7 @@ vi.mock('@/lib/webhooks/deliver', () => ({
   dispatchWebhookEvent: h.dispatchWebhookEvent,
 }))
 
-import { formatUnsupportedMessage, isGreeting, POST } from './route'
+import { formatUnsupportedMessage, isFirstMessageIn24h, isGreeting, POST } from './route'
 
 function inboundRequest(messageOverride?: Record<string, unknown>) {
   const body = {
@@ -222,6 +229,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   h.state.messageUpsertResult = [{ id: 'msg-1' }]
   h.state.priorCustomerMsgCount = 0
+  h.state.recentCustomerMsgCount = 0
   h.state.conversation = { id: 'conv-1', unread_count: 0, account_id: 'acc-1' }
   h.state.upsertCalls = []
   h.state.rpcCalls = []
@@ -254,6 +262,12 @@ describe('greeting routing', () => {
   it('does not treat a non-greeting message as a greeting', () => {
     expect(isGreeting('hello solar')).toBe(false)
     expect(isGreeting('solar ka price batao')).toBe(false)
+  })
+
+  it('treats a zero prior-count as the first message in 24 hours', () => {
+    expect(isFirstMessageIn24h(0)).toBe(true)
+    expect(isFirstMessageIn24h(null)).toBe(true)
+    expect(isFirstMessageIn24h(1)).toBe(false)
   })
 
   it('replies from CRM and does not start a flow for an existing lead', async () => {
@@ -291,6 +305,29 @@ describe('greeting routing', () => {
     expect(h.lookupCrmLead).toHaveBeenCalledWith('5551230000')
     expect(h.engineSendText).not.toHaveBeenCalled()
     expect(h.dispatchInboundToFlows).toHaveBeenCalled()
+  })
+
+  it('starts the lead form when first 24h message has no CRM lead', async () => {
+    h.lookupCrmLead.mockResolvedValue(null)
+
+    await runWebhook({ text: { body: 'Namaste' } })
+
+    expect(h.lookupCrmLead).toHaveBeenCalledWith('5551230000')
+    expect(h.engineSendText).not.toHaveBeenCalled()
+    expect(h.dispatchInboundToFlows).toHaveBeenCalledWith(
+      expect.objectContaining({ preferLeadForm: true }),
+    )
+  })
+
+  it('does not look up CRM on a later message inside the 24h window', async () => {
+    h.state.recentCustomerMsgCount = 1
+
+    await runWebhook({ text: { body: 'hello' } })
+
+    expect(h.lookupCrmLead).not.toHaveBeenCalled()
+    expect(h.dispatchInboundToFlows).toHaveBeenCalledWith(
+      expect.objectContaining({ preferLeadForm: false }),
+    )
   })
 
   it('passes a Meta button tap to the flow runner as an interactive reply', async () => {

@@ -29,3 +29,8 @@ WhatsApp solar quotes run as a **Flow**, not an LLM. There is no provider API ke
 3. **Activate**
 
 Customers who type solar / rooftop / subsidy get a button menu, pick a bill slab, and receive a Hinglish quote (2 / 3 / 5 / 7.5 kW).
+
+First inbound in 24 hours looks up the sender on StepSolar-CRM (`STEPSOLAR_CRM_BASE_URL` + `STEPSOLAR_CRM_SERVICE_KEY`):
+
+- Lead found → WhatsApp status (reference ID, stage, timeline).
+- No lead → lead form (name, phone, email, state, city, pincode, property, bill, roof, timeline) then `POST /api/leads`.

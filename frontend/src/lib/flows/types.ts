@@ -377,6 +377,12 @@ export interface DispatchInboundInput {
   contactId: string;
   conversationId: string;
   message: ParsedInbound;
+  /**
+   * When true, skip the Solar Assistant menu and start the CRM lead
+   * form (welcome_form → ask_name). Set by the webhook on the contact's
+   * first inbound in 24 hours when StepSolar-CRM has no matching lead.
+   */
+  preferLeadForm?: boolean;
 }
 
 export interface DispatchInboundResult {
