@@ -361,7 +361,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
           {
             reply_id: "want_quote",
             title: "Quote chahiye",
-            next_node_key: "ask_name",
+            next_node_key: "welcome_form",
           },
           {
             reply_id: "want_process",
@@ -620,7 +620,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
                 reply_id: "more_quote",
                 title: "Quote chahiye",
                 description: "Bill ke hisaab se size + cost",
-                next_node_key: "ask_name",
+                next_node_key: "welcome_form",
               },
               {
                 reply_id: "more_human",
@@ -658,7 +658,7 @@ const SOLAR_ASSISTANT: FlowTemplate = {
           {
             reply_id: "info_quote",
             title: "Quote chahiye",
-            next_node_key: "ask_name",
+            next_node_key: "welcome_form",
           },
           {
             reply_id: "info_agent",
@@ -688,7 +688,95 @@ const SOLAR_ASSISTANT: FlowTemplate = {
   ],
 };
 
+const WELCOME: FlowTemplate = {
+  slug: "welcome",
+  name: "Welcome",
+  description:
+    "First-message greeting. Open this flow to edit the welcome text, Quote / Process / More buttons, and subsidy replies.",
+  icon: "MessageSquare",
+  trigger_type: "keyword",
+  trigger_config: {
+    keywords: [
+      "hi",
+      "hello",
+      "hey",
+      "hii",
+      "helo",
+      "namaste",
+      "नमस्ते",
+      "हेलो",
+    ],
+    match_type: "contains",
+  },
+  entry_node_id: "start",
+  nodes: SOLAR_ASSISTANT.nodes.map((n) => ({
+    ...n,
+    config: { ...n.config } as FlowTemplateNode["config"],
+  })),
+};
+
+const LEAD_GENERATOR_KEYS = new Set([
+  "welcome_form",
+  "ask_name",
+  "ask_phone",
+  "ask_email",
+  "ask_state",
+  "ask_city",
+  "ask_pincode",
+  "ask_property_type",
+  "ask_bill",
+  "ask_roof_type",
+  "ask_timeline",
+  "create_lead",
+  "quote_summary",
+  "after_quote",
+  "process_msg",
+  "after_info",
+  "handoff",
+  "end",
+]);
+
+const LEAD_GENERATOR: FlowTemplate = {
+  slug: "lead_generator",
+  name: "Lead Generator",
+  description:
+    "CRM lead form: Full Name, Contact, Email, State, City, Pincode, Property Type, Bill, Roof, Timeline. Edit prompts and options here.",
+  icon: "UserPlus",
+  trigger_type: "keyword",
+  trigger_config: {
+    keywords: [
+      "quote",
+      "quotation",
+      "enquiry",
+      "naya quote",
+      "quote chahiye",
+      "solar",
+      "surya",
+      "rooftop",
+      "subsidy",
+      "panel",
+    ],
+    match_type: "contains",
+  },
+  entry_node_id: "start",
+  nodes: [
+    {
+      node_key: "start",
+      node_type: "start",
+      config: { next_node_key: "welcome_form" },
+    },
+    ...SOLAR_ASSISTANT.nodes
+      .filter((n) => LEAD_GENERATOR_KEYS.has(n.node_key))
+      .map((n) => ({
+        ...n,
+        config: { ...n.config } as FlowTemplateNode["config"],
+      })),
+  ],
+};
+
 const TEMPLATES: Record<string, FlowTemplate> = {
+  welcome: WELCOME,
+  lead_generator: LEAD_GENERATOR,
   solar_assistant: SOLAR_ASSISTANT,
   welcome_menu: WELCOME_MENU,
   faq_bot: FAQ_BOT,

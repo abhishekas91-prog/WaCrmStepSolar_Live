@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { requireRole, toErrorResponse } from '@/lib/auth/account'
 import { supabaseAdmin } from '@/lib/flows/admin-client'
 import { getFlowTemplate } from '@/lib/flows/templates'
+import { ensureWelcomeAndLeadGeneratorFlows } from '@/lib/flows/seed'
 
 /**
  * GET /api/flows — list the caller's flows.
@@ -33,7 +34,7 @@ export async function GET() {
   if (!guard.ok) {
     return NextResponse.json(guard.body, { status: guard.status })
   }
-  const { supabase } = guard
+  const { supabase, userId } = guard
 
   // Auto-clean any deprecated "Solar Quote & Enquiry" flow so users only have the unified "Solar Assistant"
   try {
@@ -51,6 +52,20 @@ export async function GET() {
     }
   } catch (err) {
     console.error('[flows] auto-cleanup error:', err)
+  }
+
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('account_id')
+      .eq('user_id', userId)
+      .maybeSingle()
+    const accountId = profile?.account_id as string | undefined
+    if (accountId) {
+      await ensureWelcomeAndLeadGeneratorFlows(supabaseAdmin(), accountId, userId)
+    }
+  } catch (err) {
+    console.error('[flows] auto-seed Welcome / Lead Generator error:', err)
   }
 
   const { data, error } = await supabase

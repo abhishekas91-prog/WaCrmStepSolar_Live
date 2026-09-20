@@ -24,9 +24,8 @@ See `frontend/README.md` and `deploy/DEPLOYMENT.md`.
 
 WhatsApp solar quotes run as a **Flow**, not an LLM. There is no provider API key in this project.
 
-1. Open **Flows**
-2. New flow → **Solar Assistant**
-3. **Activate**
+1. Open **Flows** — **Welcome** and **Lead Generator** are auto-created and editable
+2. Edit node text / buttons there, then **Activate**
 
 Customers who type solar / rooftop / subsidy get a button menu, pick a bill slab, and receive a Hinglish quote (2 / 3 / 5 / 7.5 kW).
 

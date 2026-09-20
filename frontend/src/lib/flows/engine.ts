@@ -44,6 +44,7 @@ import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
 import { createCrmLead } from "@/lib/solar/crm-lookup";
 import { getFlowTemplate, findTemplateNode } from "./templates";
+import { ensureTemplateFlow } from "./seed";
 import {
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
@@ -409,16 +410,26 @@ async function loadAllNodes(
     flowName.includes("quotation") ||
     flowName.includes("enquiry") ||
     flowName.includes("assistant") ||
+    flowName.includes("welcome") ||
+    flowName.includes("lead generator") ||
     flowName.includes("bijli") ||
     map.has("welcome") ||
+    map.has("welcome_form") ||
     map.has("ask_name") ||
     map.has("ask_phone") ||
     map.has("check_lead_info");
 
   if (isSolarOrQuote) {
-    const templates = [
-      getFlowTemplate("solar_assistant"),
-    ];
+    const templates =
+      flowName === "lead generator" || flowName.includes("lead generator")
+        ? [getFlowTemplate("lead_generator"), getFlowTemplate("solar_assistant")]
+        : flowName === "welcome"
+          ? [getFlowTemplate("welcome"), getFlowTemplate("solar_assistant")]
+          : [
+              getFlowTemplate("lead_generator"),
+              getFlowTemplate("welcome"),
+              getFlowTemplate("solar_assistant"),
+            ];
     for (const template of templates) {
       if (!template) continue;
       for (const tNode of template.nodes) {
@@ -562,68 +573,28 @@ async function isDuplicateInbound(
   return (count ?? 0) > 0;
 }
 
-async function ensureSolarAssistantFlow(
+async function resolveAccountUserId(
   db: AdminClient,
   accountId: string,
-  existing: FlowRow[],
-): Promise<FlowRow | null> {
-  const solarFlow = existing.find(
-    (f) =>
-      f.name?.toLowerCase().includes("solar") ||
-      f.name?.toLowerCase().includes("assistant"),
-  );
-  if (solarFlow) {
-    if (solarFlow.status !== "active") {
-      await db
-        .from("flows")
-        .update({ status: "active", updated_at: new Date().toISOString() })
-        .eq("id", solarFlow.id);
-      solarFlow.status = "active";
-    }
-    return solarFlow;
-  }
-
-  const template = getFlowTemplate("solar_assistant");
-  if (!template) return null;
+): Promise<string | null> {
   const { data: cfg } = await db
     .from("whatsapp_config")
     .select("user_id")
     .eq("account_id", accountId)
     .limit(1)
     .maybeSingle();
-  const userId = (cfg as { user_id?: string } | null)?.user_id;
+  return (cfg as { user_id?: string } | null)?.user_id ?? null;
+}
+
+async function ensureNamedFlow(
+  db: AdminClient,
+  accountId: string,
+  existing: FlowRow[],
+  slug: string,
+): Promise<FlowRow | null> {
+  const userId = await resolveAccountUserId(db, accountId);
   if (!userId) return null;
-
-  console.info(
-    `[flows] Auto-seeding template "solar_assistant" for account ${accountId}`,
-  );
-  const { data: createdFlow } = await db
-    .from("flows")
-    .insert({
-      user_id: userId,
-      account_id: accountId,
-      name: template.name,
-      description: template.description,
-      status: "active",
-      trigger_type: template.trigger_type,
-      trigger_config: template.trigger_config,
-      entry_node_id: template.entry_node_id,
-    })
-    .select()
-    .maybeSingle();
-
-  if (!createdFlow) return null;
-  if (template.nodes.length > 0) {
-    await db.from("flow_nodes").insert(
-      template.nodes.map((n) => ({
-        flow_id: (createdFlow as { id: string }).id,
-        node_key: n.node_key,
-        node_type: n.node_type,
-        config: n.config,
-      })),
-    );
-  }
-  return createdFlow as FlowRow;
+  return ensureTemplateFlow(db, accountId, userId, slug, existing);
 }
 
 async function findEntryFlow(
@@ -649,10 +620,9 @@ async function findEntryFlow(
 
   const typed = (flows as FlowRow[] | null) ?? [];
 
-  // First inbound in 24h with no CRM lead → always open Solar Assistant
-  // at the lead-capture form (see startNewRun + preferLeadForm).
+  // First inbound in 24h with no CRM lead → Lead Generator form.
   if (forceSolarAssistant) {
-    const forced = await ensureSolarAssistantFlow(db, accountId, typed);
+    const forced = await ensureNamedFlow(db, accountId, typed, "lead_generator");
     if (forced) return forced;
   }
 
@@ -740,8 +710,10 @@ async function findEntryFlow(
       }
     }
 
-    const solarFlow = await ensureSolarAssistantFlow(db, accountId, typed);
-    if (solarFlow) return solarFlow;
+    const leadFlow = await ensureNamedFlow(db, accountId, typed, "lead_generator");
+    if (leadFlow) return leadFlow;
+    const welcomeFlow = await ensureNamedFlow(db, accountId, typed, "welcome");
+    if (welcomeFlow) return welcomeFlow;
   }
 
   return null;
@@ -1742,15 +1714,18 @@ async function startNewRun(
       rawText,
     );
 
-  const startNodeKey =
-    input.preferLeadForm &&
-    (nodes.has("welcome_form") || !!findTemplateNode("welcome_form"))
+  const leadFormStart =
+    nodes.has("welcome_form") || !!findTemplateNode("welcome_form")
       ? "welcome_form"
-      : input.preferLeadForm && nodes.has("ask_name")
+      : nodes.has("ask_name")
         ? "ask_name"
-        : isDirectQuote && nodes.has("ask_name")
-          ? "ask_name"
-          : flow.entry_node_id || "start";
+        : null;
+  const startNodeKey =
+    input.preferLeadForm && leadFormStart
+      ? leadFormStart
+      : isDirectQuote && leadFormStart
+        ? leadFormStart
+        : flow.entry_node_id || "start";
 
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as

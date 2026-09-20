@@ -9,7 +9,7 @@ import {
   evaluateConditionNode,
   interpolateVars,
 } from "./engine";
-import { getFlowTemplate } from "./templates";
+import { getFlowTemplate, findTemplateNode } from "./templates";
 import type { ConditionNodeConfig, FlowRunRow, SendButtonsNodeConfig } from "./types";
 
 describe("matchReplyId", () => {
@@ -389,7 +389,7 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
     expect(template).not.toBeNull();
     if (!template) return;
 
-    // 1. Welcome node has 'want_quote' button -> routes directly to ask_name
+    // 1. Welcome node has 'want_quote' button -> welcome_form then ask_name
     const welcomeNode = template.nodes.find((n) => n.node_key === "welcome");
     expect(welcomeNode).toBeDefined();
     const cfg = welcomeNode!.config as SendButtonsNodeConfig;
@@ -397,7 +397,7 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
       { node_type: "send_buttons", config: cfg as any },
       "want_quote",
     );
-    expect(nextKey).toBe("ask_name");
+    expect(nextKey).toBe("welcome_form");
 
     // 1. ask_name (Full Name*)
     const welcomeForm = template.nodes.find((n) => n.node_key === "welcome_form");
@@ -535,6 +535,23 @@ describe("solar_assistant flow routing after 'Quote chahiye'", () => {
     expect(nodeKeys).toContain("ask_timeline");
     expect(nodeKeys).toContain("create_lead");
     expect(nodeKeys).toContain("quote_summary");
+  });
+
+  it("exposes Welcome and Lead Generator as editable flow templates", () => {
+    const welcome = getFlowTemplate("welcome");
+    expect(welcome).not.toBeNull();
+    expect(welcome!.name).toBe("Welcome");
+    expect(welcome!.nodes.some((n) => n.node_key === "welcome")).toBe(true);
+
+    const lead = getFlowTemplate("lead_generator");
+    expect(lead).not.toBeNull();
+    expect(lead!.name).toBe("Lead Generator");
+    expect(lead!.entry_node_id).toBe("start");
+    const start = lead!.nodes.find((n) => n.node_key === "start");
+    expect((start!.config as { next_node_key: string }).next_node_key).toBe(
+      "welcome_form",
+    );
+    expect(lead!.nodes.some((n) => n.node_key === "create_lead")).toBe(true);
   });
 
   it("finds template nodes on-the-fly via findTemplateNode", () => {

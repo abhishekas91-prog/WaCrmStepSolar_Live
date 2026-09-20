@@ -212,6 +212,44 @@ export async function GET(
     }
   }
 
+  // 5. Link welcome_form from quote buttons so it is reachable from entry.
+  const hasWelcomeForm = flowNodes.some((n) => n.node_key === 'welcome_form')
+  if (hasWelcomeForm) {
+    const quoteReplyIds = new Set(['want_quote', 'more_quote', 'info_quote'])
+    for (const n of flowNodes) {
+      const cfg = n.config as Record<string, unknown> & {
+        buttons?: Array<{ reply_id?: string; next_node_key?: string }>
+        sections?: Array<{ rows?: Array<{ reply_id?: string; next_node_key?: string }> }>
+      }
+      let modified = false
+      if (Array.isArray(cfg?.buttons)) {
+        for (const b of cfg.buttons) {
+          if (quoteReplyIds.has(b.reply_id ?? '') && b.next_node_key === 'ask_name') {
+            b.next_node_key = 'welcome_form'
+            modified = true
+          }
+        }
+      }
+      if (Array.isArray(cfg?.sections)) {
+        for (const s of cfg.sections) {
+          for (const r of s?.rows ?? []) {
+            if (quoteReplyIds.has(r.reply_id ?? '') && r.next_node_key === 'ask_name') {
+              r.next_node_key = 'welcome_form'
+              modified = true
+            }
+          }
+        }
+      }
+      if (modified) {
+        await admin
+          .from('flow_nodes')
+          .update({ config: cfg })
+          .eq('flow_id', id)
+          .eq('node_key', n.node_key)
+      }
+    }
+  }
+
   return NextResponse.json({ flow, nodes: flowNodes })
 }
 
