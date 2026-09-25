@@ -1589,6 +1589,44 @@ async function handleReplyForActiveRun(
         }
       }
       matched = nextKey ?? null;
+
+      if (!matched) {
+        // The customer's answer WAS understood and captured (varKey is
+        // set above) — this isn't an "unknown reply". The node's
+        // outgoing edge is just missing/broken in this flow's config
+        // (e.g. disconnected in the builder canvas) and no template
+        // default exists to fall back on. Routing this into the
+        // generic "unknown reply" fallback below would either re-send
+        // the same question forever (confusing — the customer already
+        // answered it) or silently hand off after max_reprompts with
+        // no clear signal of *why*. Surface it distinctly instead.
+        console.error(
+          `[flows] collect_input_next_node_missing: run=${run.id}, node=${currentNode.node_key}, flow=${run.flow_id}`,
+        );
+        await logEvent(db, run.id, "error", currentNode.node_key, {
+          reason: "collect_input_next_node_missing",
+          captured_key: varKey,
+        });
+        if (run.conversation_id) {
+          await db
+            .from("conversations")
+            .update({ status: "pending", updated_at: new Date().toISOString() })
+            .eq("id", run.conversation_id);
+        }
+        try {
+          await engineSendText({
+            accountId: run.account_id,
+            userId: run.user_id,
+            conversationId: run.conversation_id!,
+            contactId: run.contact_id!,
+            text: "Dhanyawad! Aapki jaankari mil gayi hai. Hamari team jald hi aapse yahan sampark karke baaki details le legi.",
+          });
+        } catch (err) {
+          console.error(`[flows] broken-node handoff notify failed for run ${run.id}:`, err);
+        }
+        await endRun(db, run.id, "handed_off", "collect_input_next_node_missing");
+        return { consumed: true, flow_run_id: run.id, outcome: "handed_off" };
+      }
     }
   }
 
