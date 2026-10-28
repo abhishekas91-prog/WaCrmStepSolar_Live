@@ -165,6 +165,7 @@ export const RELATIONS: Record<string, Relation> = {
   "deals.pipeline_stages": { kind: "parentCol", parentCol: "stage_id", childCol: "id" },
   "deals.profiles": { kind: "parentCol", parentCol: "assigned_to", childCol: "id" },
   "flow_runs.contacts": { kind: "parentCol", parentCol: "contact_id", childCol: "id" },
+  "flow_runs.flows": { kind: "parentCol", parentCol: "flow_id", childCol: "id" },
   "automation_logs.contacts": { kind: "parentCol", parentCol: "contact_id", childCol: "id" },
   "automation_logs.automations": { kind: "parentCol", parentCol: "automation_id", childCol: "id" },
   "flow_runs.automations": { kind: "parentCol", parentCol: "automation_id", childCol: "id" },

@@ -4,6 +4,7 @@ import {
   wasFindOneAndUpdateUpsert,
   buildSingleFilter,
   buildMongoFilter,
+  isEmbeddedFilter,
   MongoQueryBuilder,
 } from "./query-builder";
 import { BrowserQueryBuilder } from "./browser-builder";
@@ -76,6 +77,29 @@ describe("buildSingleFilter with 'not' operator", () => {
       subOp: "in",
     });
     expect(filter).toEqual({ role: { $nin: ["guest", "banned"] } });
+  });
+
+  it("keeps JSON-path filters as nested document fields, not embeds", () => {
+    expect(isEmbeddedFilter({ op: "eq", column: "payload.meta_message_id", value: "wamid.1" })).toBe(
+      false,
+    );
+    expect(
+      isEmbeddedFilter(
+        { op: "eq", column: "contact.id", value: "c1" },
+        ["contact"],
+      ),
+    ).toBe(true);
+    expect(
+      buildMongoFilter([
+        { op: "eq", column: "event_type", value: "reply_received" },
+        { op: "eq", column: "payload.meta_message_id", value: "wamid.1" },
+      ]),
+    ).toEqual({
+      $and: [
+        { event_type: "reply_received" },
+        { "payload.meta_message_id": "wamid.1" },
+      ],
+    });
   });
 
   it("converts postgres json arrow operator and not.is null", () => {

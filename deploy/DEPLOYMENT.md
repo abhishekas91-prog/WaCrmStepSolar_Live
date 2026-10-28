@@ -94,7 +94,7 @@ Build context is `frontend/` (its own Dockerfile). Set:
 | `SEED_INDEXES_ON_START` | runtime | `1` = ensure indexes on boot |
 | `NEXT_PUBLIC_SITE_URL` | build | canonical URL, inlined into client bundle |
 | `NEXT_PUBLIC_APP_LOCALE` | build | default `en` |
-| `STEPSOLAR_CRM_BASE_URL` | runtime | default `https://stepsolar-backend.onrender.com/api` |
+| `STEPSOLAR_CRM_BASE_URL` | runtime | optional always-on CRM API; Render free URLs are ignored |
 | `STEPSOLAR_CRM_SERVICE_KEY` | runtime | shared secret for `GET /leads/lookup` |
 
 ---

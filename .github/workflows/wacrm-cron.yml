@@ -6,12 +6,11 @@ name: WaCRM automation cron
 # scheduler instead — the routes themselves are plain authenticated
 # HTTP endpoints, so any external scheduler works.
 on:
-  schedule:
-    - cron: "*/5 * * * *"   # every 5 minutes (UTC), GitHub's minimum interval
-  workflow_dispatch: {}       # allows manual "Run workflow" from the Actions tab
+  workflow_dispatch: {}
 
 jobs:
   ping-cron-endpoints:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - name: Trigger automations cron

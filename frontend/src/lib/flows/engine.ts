@@ -564,13 +564,13 @@ async function isDuplicateInbound(
   if (!runs?.length) return false;
   const runIds = runs.map((r: any) => (r as { id: string }).id);
 
-  const { count } = await db
+  const { data: events } = await db
     .from("flow_run_events")
-    .select("id", { count: "exact", head: true })
+    .select("id, payload")
     .in("flow_run_id", runIds)
-    .eq("event_type", "reply_received")
-    .filter("payload.meta_message_id", "eq", metaMessageId);
-  return (count ?? 0) > 0;
+    .eq("event_type", "reply_received");
+  const rows = (events ?? []) as Array<{ payload?: { meta_message_id?: unknown } }>;
+  return rows.some((e) => e.payload?.meta_message_id === metaMessageId);
 }
 
 async function resolveAccountUserId(
@@ -1338,19 +1338,21 @@ export async function dispatchInboundToFlows(
       }
 
       const rawText = input.message.kind === "text" ? input.message.text.trim() : "";
+      const awaitingTextInput = /^(?:ask_|collect_)/.test(activeRun.current_node_key ?? "");
       const isGreeting =
+        !awaitingTextInput &&
         input.message.kind === "text" &&
         /^(?:hi|hello|hey|hii|helo|namaste|नमस्ते|हेलो)(?:[\s,!?.]*)$/i.test(rawText);
       const isExplicitRestart =
+        !awaitingTextInput &&
         input.message.kind === "text" &&
         (/^(?:solar|start|restart|reset|flow|shuru|quote|quotation|price|rate|cost|daam|enquiry|estimate|kavach|solar\s*quote|quote\s*chahiye|naya\s*quote|new\s*quote|bijli\s*bill)(?:[\s,!?.]*)$/i.test(
           rawText,
         ) ||
-          ((rawText.toLowerCase().includes("quote") ||
-            rawText.toLowerCase().includes("quotation") ||
-            rawText.toLowerCase().includes("price") ||
-            rawText.toLowerCase().includes("rate")) &&
-            activeRun.current_node_key !== "ask_name"));
+          rawText.toLowerCase().includes("quote") ||
+          rawText.toLowerCase().includes("quotation") ||
+          rawText.toLowerCase().includes("price") ||
+          rawText.toLowerCase().includes("rate"));
 
       const lastActiveTime = activeRun.last_advanced_at
         ? new Date(activeRun.last_advanced_at).getTime()

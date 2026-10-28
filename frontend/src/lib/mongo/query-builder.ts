@@ -437,8 +437,10 @@ export function newState(table: string): BuilderState {
   };
 }
 
-function isEmbeddedFilter(f: Filter): boolean {
-  return f.column.includes(".");
+export function isEmbeddedFilter(f: Filter, embedAliases: string[] = []): boolean {
+  if (!f.column.includes(".")) return false;
+  const prefix = f.column.slice(0, f.column.indexOf("."));
+  return embedAliases.includes(prefix);
 }
 
 // ============================================================
@@ -913,8 +915,9 @@ export async function executeQuery(
     const { filters: scope, error } = await scopeFilters(ctx, state.table, state.mode, state);
     if (error) return { data: null, count: null, error };
     const allFilters = [...state.filters, ...scope];
-    const embeddedFilters = allFilters.filter(isEmbeddedFilter);
-    const topFilters = allFilters.filter((f) => !isEmbeddedFilter(f));
+    const embedAliases = parseSelect(state.selectCols ?? "*").embeds.map((e) => e.alias);
+    const embeddedFilters = allFilters.filter((f) => isEmbeddedFilter(f, embedAliases));
+    const topFilters = allFilters.filter((f) => !isEmbeddedFilter(f, embedAliases));
 
     switch (state.mode) {
       case "select":
