@@ -12,9 +12,21 @@
  * the rest of StepSolar-CRM uses — this bot has no human login.
  */
 
-const CRM_BASE =
-  process.env.STEPSOLAR_CRM_BASE_URL ?? 'https://stepsolar-backend.onrender.com/api'
+function resolveCrmBase(): string {
+  const raw = (process.env.STEPSOLAR_CRM_BASE_URL ?? '').trim().replace(/\/$/, '')
+  if (!raw) return ''
+  try {
+    const host = new URL(raw).hostname.toLowerCase()
+    if (host.endsWith('onrender.com')) return ''
+  } catch {
+    return ''
+  }
+  return raw
+}
+
+const CRM_BASE = resolveCrmBase()
 const SERVICE_KEY = process.env.STEPSOLAR_CRM_SERVICE_KEY ?? ''
+const CRM_TIMEOUT_MS = 2500
 
 export interface CrmLeadStage {
   key: string
@@ -41,14 +53,13 @@ export interface CrmLead {
  * fall through to the normal flow instead of blocking the reply.
  */
 export async function lookupCrmLead(phone10: string): Promise<CrmLead | null> {
-  if (!SERVICE_KEY) {
-    console.warn('[crm-lookup] STEPSOLAR_CRM_SERVICE_KEY not set — skipping lookup')
+  if (!CRM_BASE || !SERVICE_KEY) {
     return null
   }
   try {
     const res = await fetch(`${CRM_BASE}/leads/lookup?phone=${encodeURIComponent(phone10)}`, {
       headers: { 'X-Service-Key': SERVICE_KEY },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(CRM_TIMEOUT_MS),
     })
     if (res.status === 404) return null
     if (!res.ok) {
@@ -94,6 +105,9 @@ export interface CreateLeadInput {
 export async function createCrmLead(
   input: CreateLeadInput,
 ): Promise<{ id: string; code: string } | null> {
+  if (!CRM_BASE) {
+    return null
+  }
   try {
     const headers: Record<string, string> = { 'content-type': 'application/json' }
     if (SERVICE_KEY) headers['X-Service-Key'] = SERVICE_KEY
@@ -101,7 +115,7 @@ export async function createCrmLead(
       method: 'POST',
       headers,
       body: JSON.stringify({ ...input, source: input.source ?? 'whatsapp_flow' }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(CRM_TIMEOUT_MS),
     })
     if (!res.ok) {
       const detail = await res.text().catch(() => '')

@@ -642,5 +642,12 @@ describe("inbound greeting and restart patterns", () => {
     expect(isExplicitRestart("quotation")).toBe(true);
     expect(isExplicitRestart("other message")).toBe(false);
   });
+
+  it("does not treat a typed name as a greeting or restart", () => {
+    expect(isGreeting("Rahul")).toBe(false);
+    expect(isGreeting("Abhishek Singh")).toBe(false);
+    expect(isExplicitRestart("Rahul")).toBe(false);
+    expect(isExplicitRestart("Abhishek Singh")).toBe(false);
+  });
 });
 
